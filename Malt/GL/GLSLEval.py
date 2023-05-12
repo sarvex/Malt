@@ -6,7 +6,7 @@ def glsl_vector(convert, length, *args):
         except:
             unpacked_args.append(arg)
     unpacked_args = [convert(arg) for arg in unpacked_args]
-    if len(unpacked_args) == 0:
+    if not unpacked_args:
         return (0.0)*length
     elif len(unpacked_args) == 1:
         return (unpacked_args[0],) * length

@@ -43,9 +43,10 @@ class NPR_LightShaders():
         if tex is None or tex.resolution != depth_texture.resolution or tex.length < len(lights):
             self.texture = TextureArray(depth_texture.resolution, len(lights), GL_RGB32F)
             self.fbos = []
-            for i in range(len(lights)):
-                self.fbos.append(RenderTarget([ArrayLayerTarget(self.texture, i)]))
-        
+            self.fbos.extend(
+                RenderTarget([ArrayLayerTarget(self.texture, i)])
+                for i in range(len(lights))
+            )
         for i, light in enumerate(lights):
             material = light.parameters['Shader']
             if material.shader and 'SHADER' in material.shader.keys():

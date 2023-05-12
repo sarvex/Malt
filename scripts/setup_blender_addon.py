@@ -49,10 +49,7 @@ def make_copy(copy_to, copy_from):
 import_path = os.path.join(blender_malt_folder, '.MaltPath')
 ensure_dir(import_path)
 
-setup_modules = make_link
-if ARGS.copy_modules:
-    setup_modules = make_copy
-
+setup_modules = make_copy if ARGS.copy_modules else make_link
 setup_modules(os.path.join(import_path, 'Malt'), os.path.join(main_dir, 'Malt'))
 setup_modules(os.path.join(import_path, 'Bridge'), os.path.join(main_dir, 'Bridge'))
 

@@ -65,7 +65,7 @@ class RenderTarget():
             target = self.targets[i]
             if target is None:
                 continue
-            if isinstance(color, ctypes.Array) == False:
+            if not isinstance(color, ctypes.Array):
                 size = 1
                 try: size = len(color)
                 except: pass

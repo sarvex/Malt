@@ -20,12 +20,12 @@ class CompositeDepth():
         if self.t is None or self.t.resolution != depth_texture.resolution:
             self.t = Texture(depth_texture.resolution, GL_R32F)
             self.fbo = RenderTarget([self.t])
-        
-        if self.shader == None:
+
+        if self.shader is None:
             global _SHADER
             if _SHADER is None: _SHADER = pipeline.compile_shader_from_source(_shader_src)
             self.shader = _SHADER
-        
+
         self.shader.textures['DEPTH_TEXTURE'] = depth_texture
         self.shader.uniforms['DEPTH_CHANNEL'].set_value(depth_channel)
         common_buffer.shader_callback(self.shader)

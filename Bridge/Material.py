@@ -8,9 +8,9 @@ class Material():
         self.path = path
         self.parameters = {}
         self.compiler_error = ''
-        
+
         compiled_material = pipeline.compile_material(path, search_paths)#, custom_passes)
-        
+
         if isinstance(compiled_material, str):
             self.compiler_error = compiled_material
         else:
@@ -18,10 +18,10 @@ class Material():
                 for uniform_name, uniform in shader.uniforms.items():
                     self.parameters[uniform_name] = Parameter.from_uniform(uniform)
                 if shader.error:
-                    self.compiler_error += pass_name + " : " + shader.error
+                    self.compiler_error += f"{pass_name} : {shader.error}"
                 if shader.validator:
-                    self.compiler_error += pass_name + " : " + shader.validator
-        
+                    self.compiler_error += f"{pass_name} : {shader.validator}"
+
         if self.compiler_error == '':
             global MATERIAL_SHADERS
             MATERIAL_SHADERS[self.path] = compiled_material

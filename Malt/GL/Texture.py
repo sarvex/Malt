@@ -177,10 +177,10 @@ def internal_format_to_data_format(internal_format):
         'UI' : GL_UNSIGNED_INT,
         'I' : GL_INT,
     }
-    for key, value in table.items():
-        if name.endswith(key):
-            return value
-    return GL_UNSIGNED_BYTE
+    return next(
+        (value for key, value in table.items() if name.endswith(key)),
+        GL_UNSIGNED_BYTE,
+    )
 
 def data_format_size(data_format):
     name = GL_ENUMS[data_format]
@@ -189,10 +189,7 @@ def data_format_size(data_format):
         'SHORT' : 2,
         'HALF' : 2,
     }
-    for key, value in table.items():
-        if key in name:
-            return value
-    return 4
+    return next((value for key, value in table.items() if key in name), 4)
 
 def internal_format_to_sampler_type(internal_format):
     table = {
@@ -226,10 +223,7 @@ def internal_format_to_format(internal_format):
     }
     for key, value in table.items():
         if key in name:
-            if name.endswith('I'):
-                return GL_NAMES[GL_ENUMS[value] + '_INTEGER']
-            else:
-                return value
+            return GL_NAMES[f'{GL_ENUMS[value]}_INTEGER'] if name.endswith('I') else value
     raise Exception(name, ' Texture format not supported')
 
 def format_channels(format):
@@ -239,6 +233,4 @@ def format_channels(format):
         GL_RG : 2,
         GL_RED : 1,
     }
-    if format in table.keys():
-        return table[format]
-    return 1
+    return table.get(format, 1)

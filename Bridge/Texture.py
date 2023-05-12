@@ -24,13 +24,9 @@ def load_texture(msg):
     ]
     internal_format = internal_formats[channels-1]
     pixel_format = pixel_formats[channels-1]
-    
-    if sRGB:
-        if channels == 4:
-            internal_format = GL_SRGB_ALPHA
-        else:
-            internal_format = GL_SRGB
 
+    if sRGB:
+        internal_format = GL_SRGB_ALPHA if channels == 4 else GL_SRGB
     #Nearest + Anisotropy seems to yield the best results with temporal super sampling
     TEXTURES[name] = Texture.Texture(resolution, internal_format, GL_FLOAT, data, pixel_format=pixel_format, 
         wrap=GL_REPEAT, min_filter=GL_NEAREST_MIPMAP_NEAREST, build_mipmaps=True, anisotropy=True)

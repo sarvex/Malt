@@ -7,17 +7,15 @@ from Malt.Utils import LOG
 class Shader():
 
     def __init__(self, vertex_source, pixel_source):
+        self.vertex_source = vertex_source
+        self.pixel_source = pixel_source
         if vertex_source and pixel_source:
-            self.vertex_source = vertex_source
-            self.pixel_source = pixel_source
             self.program, self.error = compile_gl_program(vertex_source, pixel_source)
             self.validator = glslang_validator(vertex_source,'vert')
             self.validator += glslang_validator(pixel_source,'frag')
             if self.validator == '':
                 self.validator = None
         else:
-            self.vertex_source = vertex_source
-            self.pixel_source = pixel_source
             self.program = None
             self.error = 'NO SOURCE'
             self.validator = None
@@ -43,7 +41,7 @@ class Shader():
             uniform.bind()
         for name, texture in self.textures.items():
             if name not in self.uniforms:
-                LOG.debug("Texture Uniform {} not found".format(name))
+                LOG.debug(f"Texture Uniform {name} not found")
                 continue
             uniform = self.uniforms[name]
             glActiveTexture(GL_TEXTURE0 + uniform.value[0])
@@ -279,7 +277,7 @@ def compile_gl_program(vertex, fragment):
         #line 1 "src"
         ''') + source
         return fix_line_directive_paths(source)
-    
+
     vertex = finalize_source(vertex)
     fragment = finalize_source(fragment)
 
@@ -293,8 +291,8 @@ def compile_gl_program(vertex, fragment):
     shader_hash = hashlib.sha1(hash_src.encode()).hexdigest()
     cache_folder = os.path.join(tempfile.gettempdir(), 'MALT_SHADERS_CACHE')
     os.makedirs(cache_folder, exist_ok=True)
-    cache_path = os.path.join(cache_folder, shader_hash+'.bin')
-    format_path = os.path.join(cache_folder, shader_hash+'.fmt')
+    cache_path = os.path.join(cache_folder, f'{shader_hash}.bin')
+    format_path = os.path.join(cache_folder, f'{shader_hash}.fmt')
     cache, format = None, None
     if os.path.exists(cache_path) and os.path.exists(format_path):
         from pathlib import Path
@@ -305,7 +303,7 @@ def compile_gl_program(vertex, fragment):
         Path(format_path).touch()
         with open(format_path, 'rb') as f:
             format = GLuint.from_buffer_copy(f.read())
-    
+
     program = glCreateProgram()
     error = ""
 
@@ -329,7 +327,7 @@ def compile_gl_program(vertex, fragment):
             info_log = glGetShaderInfoLog(shader)
             nonlocal error
             error += 'SHADER COMPILER ERROR :\n' + buffer_to_string(info_log)
-        
+
         return shader
 
     vertex_shader = compile_shader(vertex, GL_VERTEX_SHADER)
@@ -341,7 +339,7 @@ def compile_gl_program(vertex, fragment):
 
     glDeleteShader(vertex_shader)
     glDeleteShader(fragment_shader)
-    
+
     glGetProgramiv(program, GL_LINK_STATUS, status)
     if status[0] == GL_FALSE:
         info_log = glGetProgramInfoLog(program)
@@ -367,7 +365,7 @@ def reflect_program_uniforms(program):
     uniform_name = gl_buffer(GL_BYTE, max_string_length)
     array_length = gl_buffer(GL_INT, 1)
     uniform_count = gl_buffer(GL_INT,1)
-    
+
     glGetProgramiv(program, GL_ACTIVE_UNIFORMS, uniform_count)
 
     uniforms = {}
@@ -407,13 +405,13 @@ def reflect_program_uniforms(program):
 
         if array_length[0] > 1:
             for i in range(array_length[0]):
-                _name = '[{}]'.format(i).join(name.rsplit('[0]', 1))
+                _name = f'[{i}]'.join(name.rsplit('[0]', 1))
                 _value = value[i*size:i*size+size]
                 _location = glGetUniformLocation(program, _name)
                 uniforms[_name] = GLUniform(_location, uniform_type[0], _value)
         else:
             uniforms[name] = GLUniform(location, uniform_type[0], value)
-    
+
     return uniforms
 
 
@@ -438,10 +436,14 @@ def uniform_type_to_base_type_and_size(type):
         return (GL_INT, 1)
     for base_name, base_type in base_types.items():
         if type_name.startswith(base_name):
-            for size_name, size in gl_sizes.items():
-                if size_name in type_name:
-                    return (base_type, size)
-            return (base_type, 1)
+            return next(
+                (
+                    (base_type, size)
+                    for size_name, size in gl_sizes.items()
+                    if size_name in type_name
+                ),
+                (base_type, 1),
+            )
     raise Exception(type_name, ' Uniform type not supported')
 
 
@@ -462,7 +464,7 @@ def uniform_type_set_function(uniform_type):
         9 : 'Matrix3',
         16: 'Matrix4'
     }
-    function_name = 'glUniform' + gl_size[size] + gl_types[base_type]
+    function_name = f'glUniform{gl_size[size]}{gl_types[base_type]}'
     function = globals()[function_name]
     if size > 4: #is matrix
         def set_matrix_wrapper(location, count, value):
@@ -505,9 +507,9 @@ USE_GLSLANG_VALIDATOR = False
 
 def glsl_reflection(code, root_paths=[]):
     import tempfile, subprocess, json, platform
-    
+
     GLSLParser = os.path.join(os.path.dirname(__file__), 'GLSLParser', '.bin', 'GLSLParser')
-    
+
     tmp = tempfile.NamedTemporaryFile(delete=False)
     tmp.write(code.encode('utf-8'))
     tmp.close()
@@ -516,16 +518,16 @@ def glsl_reflection(code, root_paths=[]):
     if platform.system() == 'Windows':
         #run with utf8 code page to support non-ascii paths
         command = f'CHCP 65001 > nul && {command}'
-    
+
     try:
         json_string = subprocess.check_output(command, shell=True)
     except:
         import stat
         os.chmod(GLSLParser, os.stat(GLSLParser).st_mode | stat.S_IEXEC)
         json_string = subprocess.check_output(command, shell=True)
-    
+
     os.remove(tmp.name)
-    
+
     reflection = json.loads(json_string)
 
     def patch_meta(dic):
@@ -535,10 +537,10 @@ def glsl_reflection(code, root_paths=[]):
                 for k, v in reflection['meta globals'][path].items():
                     if k not in e['meta'].keys():
                         e['meta'][k] = v
-    
+
     patch_meta(reflection['functions'])
     patch_meta(reflection['structs'])
-    
+
     from Malt.GL.GLSLEval import glsl_eval
 
     def eval_meta(dict):
@@ -548,7 +550,7 @@ def glsl_reflection(code, root_paths=[]):
                 meta_dict[k] = glsl_eval(v)
             except:
                 pass
-    
+
     def meta_label(dict):
         label = dict['meta'].get('label')
         if label is None:
@@ -561,7 +563,7 @@ def glsl_reflection(code, root_paths=[]):
         for parameter in function['parameters']:
             eval_meta(parameter)
             meta_label(parameter)
-            
+
     for struct in reflection['structs'].values():
         eval_meta(struct)
         meta_label(struct)
@@ -572,9 +574,10 @@ def glsl_reflection(code, root_paths=[]):
     def handle_paths(dic):
         for e in dic.values():
             path = e['file']
-            if '.internal.' in path or '__internal__' in path:
-                if 'internal' not in e['meta'].keys():
-                    e['meta']['internal'] = True
+            if (
+                '.internal.' in path or '__internal__' in path
+            ) and 'internal' not in e['meta'].keys():
+                e['meta']['internal'] = True
             path = os.path.normpath(path)
             for root_path in root_paths:
                 try:
@@ -583,7 +586,7 @@ def glsl_reflection(code, root_paths=[]):
                         path = _path
                 except: pass
             e['file'] = path.replace('\\','/')
-    
+
     handle_paths(reflection['structs'])
     handle_paths(reflection['functions'])
 
@@ -601,9 +604,9 @@ def glsl_reflection(code, root_paths=[]):
             reflection['functions'][key] = functions[0]
         else:
             for function in functions:
-                new_key = key + ' - ' + function['signature']
+                new_key = f'{key} - ' + function['signature']
                 reflection['functions'][new_key] = function
-    
+
     reflection['subcategories'] = {}
     for key, function in reflection['functions'].items():
         subcategory = function['meta'].get('subcategory')
@@ -611,14 +614,14 @@ def glsl_reflection(code, root_paths=[]):
             if subcategory not in reflection['subcategories'].keys():
                 reflection['subcategories'][subcategory] = []
             reflection['subcategories'][subcategory].append(key)
-    
+
     return reflection
 
 
 def glslang_validator(source, stage):
     if not USE_GLSLANG_VALIDATOR:
         return ''
-        
+
     import subprocess
     import tempfile
     import os
@@ -643,6 +646,6 @@ def glslang_validator(source, stage):
             'vert' : 'VERTEX',
             'frag' : 'PIXEL',
         }
-        return '{} SHADER VALIDATION :\n{}'.format(stages[stage], out)
+        return f'{stages[stage]} SHADER VALIDATION :\n{out}'
     else:
         return ''

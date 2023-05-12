@@ -48,7 +48,7 @@ class MaltCallback(bpy.types.PropertyGroup):
     def set(self, callback, message=''):
         global _CALLBACKS, _LAST_HANDLE, _MAX_CALLBACKS
         _LAST_HANDLE += 1
-        _LAST_HANDLE = _LAST_HANDLE % _MAX_CALLBACKS
+        _LAST_HANDLE %= _MAX_CALLBACKS
         _CALLBACKS[_LAST_HANDLE] = callback
         self['_MALT_CALLBACK_'] = _LAST_HANDLE
         self['_MESSAGE_'] = message
@@ -65,7 +65,7 @@ class OT_MaltCallback(bpy.types.Operator):
     callback : bpy.props.PointerProperty(type=MaltCallback)
 
     @classmethod
-    def description(self, context, properties):
+    def description(cls, context, properties):
         return properties.callback['_MESSAGE_']
 
     def execute(self, context):
@@ -97,7 +97,7 @@ def to_json_rna_path_node_workaround(malt_property_group, path_from_group):
     assert(isinstance(tree, bpy.types.NodeTree))
     for node in tree.nodes:
         if node.malt_parameters.as_pointer() == malt_property_group.as_pointer():
-            path = 'nodes["{}"].{}'.format(node.name, path_from_group)
+            path = f'nodes["{node.name}"].{path_from_group}'
             return json.dumps(('NodeTree', tree.name_full, path))
 
 def to_json_rna_path(prop):
@@ -121,10 +121,14 @@ def from_json_rna_path(prop):
         'Scene': bpy.data.scenes,
         'NodeTree' : bpy.data.node_groups
     }
-    for class_name, data in data_map.items():
-        if class_name in id_type:
-            return data[id_name].path_resolve(path)
-    return None
+    return next(
+        (
+            data[id_name].path_resolve(path)
+            for class_name, data in data_map.items()
+            if class_name in id_type
+        ),
+        None,
+    )
 
 classes=[
     OT_MaltPrintError,

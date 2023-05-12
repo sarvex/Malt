@@ -47,19 +47,32 @@ class NPR_ShadowMaps(Lighting.ShadowMaps):
             GL_R16UI, min_filter=GL_NEAREST, mag_filter=GL_NEAREST)
         self.point_id_t = CubeMapArray((self.point_resolution, self.point_resolution), self.max_points, 
             GL_R16UI, min_filter=GL_NEAREST, mag_filter=GL_NEAREST)
-        
+
         if create_fbos:
             self.spot_fbos = []
-            for i in range(self.spot_depth_t.length):
-                self.spot_fbos.append(RenderTarget([ArrayLayerTarget(self.spot_id_t, i)], ArrayLayerTarget(self.spot_depth_t, i)))
-
+            self.spot_fbos.extend(
+                RenderTarget(
+                    [ArrayLayerTarget(self.spot_id_t, i)],
+                    ArrayLayerTarget(self.spot_depth_t, i),
+                )
+                for i in range(self.spot_depth_t.length)
+            )
             self.sun_fbos = []
-            for i in range(self.sun_depth_t.length):
-                self.sun_fbos.append(RenderTarget([ArrayLayerTarget(self.sun_id_t, i)], ArrayLayerTarget(self.sun_depth_t, i)))
-            
+            self.sun_fbos.extend(
+                RenderTarget(
+                    [ArrayLayerTarget(self.sun_id_t, i)],
+                    ArrayLayerTarget(self.sun_depth_t, i),
+                )
+                for i in range(self.sun_depth_t.length)
+            )
             self.point_fbos = []
-            for i in range(self.point_depth_t.length*6):
-                self.point_fbos.append(RenderTarget([ArrayLayerTarget(self.point_id_t, i)], ArrayLayerTarget(self.point_depth_t, i)))
+            self.point_fbos.extend(
+                RenderTarget(
+                    [ArrayLayerTarget(self.point_id_t, i)],
+                    ArrayLayerTarget(self.point_depth_t, i),
+                )
+                for i in range(self.point_depth_t.length * 6)
+            )
     
     def clear(self, spot_count, sun_count, point_count):
         for i in range(spot_count):

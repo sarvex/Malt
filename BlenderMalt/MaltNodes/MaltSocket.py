@@ -109,19 +109,17 @@ class MaltSocket(bpy.types.NodeSocket):
         def get_linked_internal(socket):
             if socket.is_linked == False and ignore_muted:
                 return None
+            try: link = socket.links[0]
+            except: return None #socket.links can be empty even if is_linked is true!?!?!
+            if ignore_muted and link.is_muted:
+                return None
+            linked = link.to_socket if socket.is_output else link.from_socket
+            if isinstance(linked.node, bpy.types.NodeReroute):
+                sockets = linked.node.inputs if linked.is_output else linked.node.outputs
+                return None if len(sockets) == 0 else get_linked_internal(sockets[0])
             else:
-                try: link = socket.links[0]
-                except: return None #socket.links can be empty even if is_linked is true!?!?!
-                if ignore_muted and link.is_muted:
-                    return None
-                linked = link.to_socket if socket.is_output else link.from_socket
-                if isinstance(linked.node, bpy.types.NodeReroute):
-                    sockets = linked.node.inputs if linked.is_output else linked.node.outputs
-                    if len(sockets) == 0:
-                        return None
-                    return get_linked_internal(sockets[0])
-                else:
-                    return linked if linked.active else None
+                return linked if linked.active else None
+
         return get_linked_internal(self)
     
     def get_ui_label(self, print_type=True):
@@ -132,11 +130,8 @@ class MaltSocket(bpy.types.NodeSocket):
         type = self.data_type
         if self.array_size > 0:
             type += f'[{self.array_size}]'
-        
-        if self.is_output:
-            return f'({type}) : {name}'
-        else:
-            return f'{name} : ({type})'
+
+        return f'({type}) : {name}' if self.is_output else f'{name} : ({type})'
     
     def draw(self, context, layout, node, text):
         if self.active == False:
@@ -159,15 +154,9 @@ class MaltSocket(bpy.types.NodeSocket):
             base_type = False
         array_type = self.array_size > 0
         if base_type:
-            if array_type:
-                self.display_shape = 'CIRCLE_DOT'
-            else:
-                self.display_shape = 'CIRCLE'
+            self.display_shape = 'CIRCLE_DOT' if array_type else 'CIRCLE'
         else:
-            if array_type:
-                self.display_shape = 'SQUARE_DOT'
-            else:
-                self.display_shape = 'SQUARE'
+            self.display_shape = 'SQUARE_DOT' if array_type else 'SQUARE'
 
     def draw_color(self, context, node):
         color = get_type_color(self.data_type)

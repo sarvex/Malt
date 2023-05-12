@@ -58,9 +58,17 @@ class SharedBuffer(IBuffer):
         self._size = size
         self.id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
         self._buffer = C_SharedMemory()
-        create_shared_memory(('MALT_SHARED_'+self.id).encode('ascii'), self.size_in_bytes(), ctypes.byref(self._buffer))
+        create_shared_memory(
+            f'MALT_SHARED_{self.id}'.encode('ascii'),
+            self.size_in_bytes(),
+            ctypes.byref(self._buffer),
+        )
         self._release_flag = C_SharedMemory()
-        create_shared_memory(('MALT_FLAG_'+self.id).encode('ascii'), ctypes.sizeof(ctypes.c_bool), ctypes.byref(self._release_flag))
+        create_shared_memory(
+            f'MALT_FLAG_{self.id}'.encode('ascii'),
+            ctypes.sizeof(ctypes.c_bool),
+            ctypes.byref(self._release_flag),
+        )
         ctypes.c_bool.from_address(self._release_flag.data).value = True
         self._is_owner = True
     
@@ -85,9 +93,17 @@ class SharedBuffer(IBuffer):
         self.__dict__.update(state)
         self._is_owner = False
         self._buffer = C_SharedMemory()
-        open_shared_memory(('MALT_SHARED_'+self.id).encode('ascii'), self.size_in_bytes(), ctypes.byref(self._buffer))
+        open_shared_memory(
+            f'MALT_SHARED_{self.id}'.encode('ascii'),
+            self.size_in_bytes(),
+            ctypes.byref(self._buffer),
+        )
         self._release_flag = C_SharedMemory()
-        open_shared_memory(('MALT_FLAG_'+self.id).encode('ascii'), ctypes.sizeof(ctypes.c_bool), ctypes.byref(self._release_flag))
+        open_shared_memory(
+            f'MALT_FLAG_{self.id}'.encode('ascii'),
+            ctypes.sizeof(ctypes.c_bool),
+            ctypes.byref(self._release_flag),
+        )
 
     def __del__(self):
         if self._is_owner == False or ctypes.c_bool.from_address(self._release_flag.data).value == True:

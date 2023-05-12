@@ -84,10 +84,12 @@ class MaltNode():
             return
         #Find the node from its node tree so we have access to the node id_data
         for tree in bpy.data.node_groups:
-            if node.name in tree.nodes:
-                if node.temp_id == tree.nodes[node.name].temp_id:
-                    node = tree.nodes[node.name]
-                    break
+            if (
+                node.name in tree.nodes
+                and node.temp_id == tree.nodes[node.name].temp_id
+            ):
+                node = tree.nodes[node.name]
+                break
         #We can't copy a node without ID data
         if node.id_data is None:
             node = None
@@ -238,12 +240,11 @@ class MaltNode():
         if ' @ ' in name:
             name_postfix = name.split(' @ ')
             name = name_postfix[0]
-            postfix = ' @ ' + name_postfix[1]
+            postfix = f' @ {name_postfix[1]}'
         if name in self.inputs.keys() and self.inputs[name].active:
             name = self.inputs[name].get_source_global_reference()
-        name += postfix 
-        name = name.replace('"','')
-        return name
+        name += postfix
+        return name.replace('"','')
     
     def should_delete_outdated_links(self):
         return False
@@ -279,15 +280,15 @@ class MaltNode():
 
     def get_source_code(self, transpiler):
         if self.id_data.get_source_language() == 'GLSL':
-            return '/*{} not implemented*/'.format(self)
+            return f'/*{self} not implemented*/'
         elif self.id_data.get_source_language() == 'Python':
-            return '# {} not implemented'.format(self)
+            return f'# {self} not implemented'
 
     def get_source_socket_reference(self, socket):
         if self.id_data.get_source_language() == 'GLSL':
-            return '/*{} not implemented*/'.format(socket.name)
+            return f'/*{socket.name} not implemented*/'
         elif self.id_data.get_source_language() == 'Python':
-            return '# {} not implemented'.format(socket.name)
+            return f'# {socket.name} not implemented'
     
     def sockets_to_global_parameters(self, sockets, transpiler):
         code = ''
@@ -308,10 +309,7 @@ class MaltNode():
     
     def is_column_type(self, data_type):
         global COLUMN_TYPES
-        for type in COLUMN_TYPES:
-            if type in data_type:
-                return True
-        return False
+        return any(type in data_type for type in COLUMN_TYPES)
     
     def draw_socket(self, context, layout, socket, text):
         draw_parameter = socket.is_output == False and socket.get_linked() is None and socket.default_initialization == ''
@@ -347,10 +345,7 @@ class MaltNode():
                 if input.show_in_material_panel:
                     print_label = False
                     break
-        if print_label:
-            return self.malt_label
-        else:
-            return self.name.replace('_', ' ')
+        return self.malt_label if print_label else self.name.replace('_', ' ')
 
     
 classes = []

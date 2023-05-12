@@ -12,7 +12,7 @@ def start_server(pipeline_path, viewport_bit_depth, connection_addresses,
     console_logger = logging.StreamHandler()
     console_logger.setLevel(logging.WARNING)
     logging.getLogger().addHandler(console_logger)
-    
+
     import os, sys, ctypes
     if sys.platform == 'win32':
         win = ctypes.windll.kernel32
@@ -23,7 +23,7 @@ def start_server(pipeline_path, viewport_bit_depth, connection_addresses,
         win.CloseHandle(process)
     if renderdoc_path and os.path.exists(renderdoc_path):
         import subprocess
-        subprocess.call([renderdoc_path, 'inject', '--PID={}'.format(os.getpid())])
+        subprocess.call([renderdoc_path, 'inject', f'--PID={os.getpid()}'])
 
     from . import Server
     try:

@@ -34,7 +34,7 @@ class NodeTreePreview(bpy.types.PropertyGroup):
     
     def get_socket_ex(self) -> tuple[Union[bpy.types.NodeSocket, None], Union[str, int]]:
         '''Gets the stored socket. Because all references have to be strings and ints, the validity of the references have to be checked first.'''
-        if (node := self.get_node()) == None:
+        if (node := self.get_node()) is None:
             return None, ''
         if self.socket_name in node.inputs.keys():
             return node.inputs[self.socket_name], self.socket_name
@@ -67,11 +67,10 @@ class NodeTreePreview(bpy.types.PropertyGroup):
         if (input_count := len(node_inputs)) < 1:
             return False
         old_socket = self.get_socket()
-        if not self.get_node() == node or old_socket == None:
+        if self.get_node() != node or old_socket is None:
             return self.set_socket(node_inputs[0])
-        else:
-            old_index = next(i for i, s in enumerate(node_inputs) if s == old_socket)
-            return self.set_socket(node_inputs[(old_index + 1) % input_count])
+        old_index = next(i for i, s in enumerate(node_inputs) if s == old_socket)
+        return self.set_socket(node_inputs[(old_index + 1) % input_count])
     
     def connect_socket(self, socket: bpy.types.NodeSocket) -> bool:
         preview_socket = self.get_socket()
@@ -383,10 +382,16 @@ class NODE_OT_malt_add_search(NodeAddOperator, Operator):
         import nodeitems_utils
 
         node_item = int(self.node_item)
-        for index, item in enumerate(nodeitems_utils.node_items_iter(context)):
-            if index == node_item:
-                return item
-        return None
+        return next(
+            (
+                item
+                for index, item in enumerate(
+                    nodeitems_utils.node_items_iter(context)
+                )
+                if index == node_item
+            ),
+            None,
+        )
 
     node_item: EnumProperty(
         name="Node Type",
@@ -501,9 +506,9 @@ class MaltNodeDrawCallbacks:
         node_tree: MaltTree = space.edit_tree
         tp:NodeTreePreview = node_tree.tree_preview
         socket, identifier = tp.get_socket_ex()
-        if socket == None:
+        if socket is None:
             return
-        
+
         preferences = context.preferences
         label_style = preferences.ui_styles[0].widget_label
         size = label_style.points

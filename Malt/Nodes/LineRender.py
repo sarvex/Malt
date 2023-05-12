@@ -18,8 +18,7 @@ class LineRender(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Color'] = Parameter('', Type.TEXTURE)
+        inputs = {'Color': Parameter('', Type.TEXTURE)}
         inputs['Line Color'] = Parameter('', Type.TEXTURE)
         inputs['Line Width'] = Parameter('', Type.TEXTURE)
         inputs['Max Width'] = Parameter(10, Type.INT, doc="""
@@ -34,9 +33,7 @@ class LineRender(PipelineNode):
     
     @classmethod
     def reflect_outputs(cls):
-        outputs = {}
-        outputs['Color'] = Parameter('', Type.TEXTURE)
-        return outputs
+        return {'Color': Parameter('', Type.TEXTURE)}
     
     def setup_render_targets(self, resolution):
         self.t_color = Texture(resolution, GL_RGBA16F)

@@ -73,19 +73,18 @@ class MaltFunctionNodeBase(MaltNode):
                         return function
             except:
                 pass
-        parameters = set()
         from itertools import chain
-        for socket in chain(self.inputs.keys(), self.outputs.keys()):
-            parameters.add(socket)
+        parameters = set(chain(self.inputs.keys(), self.outputs.keys()))
         key, function = None, None
         matching_parameters = 0
         total_parameters = 0
         for _key, _function in library.items():
             if _function['name'] in self.function_type:
-                matching_count = 0
-                for parameter in _function['parameters']:
-                    if parameter['name'] in parameters:
-                        matching_count += 1
+                matching_count = sum(
+                    1
+                    for parameter in _function['parameters']
+                    if parameter['name'] in parameters
+                )
                 if (key is None or matching_count > matching_parameters or 
                 (matching_count == matching_parameters and len(_function['parameters']) < total_parameters)):
                     total_parameters = len(_function['parameters'])
@@ -118,8 +117,7 @@ class MaltFunctionNodeBase(MaltNode):
     def get_pass_type(self):
         graph = self.id_data.get_pipeline_graph()
         if graph.language == 'Python':
-            pass_type = graph.functions[self.function_type]['pass_type']
-            if pass_type:
+            if pass_type := graph.functions[self.function_type]['pass_type']:
                 return pass_type
         return ''
     
@@ -129,10 +127,10 @@ class MaltFunctionNodeBase(MaltNode):
             if graph.graph_type == graph.GLOBAL_GRAPH:
                 if graph.language == 'Python':
                     return self.malt_parameters.graphs['PASS_GRAPH'].graph
-                else:
-                    material = self.malt_parameters.materials['PASS_MATERIAL'].material
-                    if material:
-                        return material.malt.shader_nodes
+                if material := self.malt_parameters.materials[
+                    'PASS_MATERIAL'
+                ].material:
+                    return material.malt.shader_nodes
     
     def get_custom_io(self):
         if self.pass_graph_type != '':
@@ -142,44 +140,44 @@ class MaltFunctionNodeBase(MaltNode):
                 if graph.language == 'Python':
                     if 'PASS_GRAPH' in self.malt_parameters.graphs.keys():
                         tree = self.malt_parameters.graphs['PASS_GRAPH'].graph
-                else:
-                    if 'PASS_MATERIAL' in self.malt_parameters.materials.keys():
-                        material = self.malt_parameters.materials['PASS_MATERIAL'].material
-                        if material:
-                            tree = material.malt.shader_nodes
+                elif 'PASS_MATERIAL' in self.malt_parameters.materials.keys():
+                    if material := self.malt_parameters.materials[
+                        'PASS_MATERIAL'
+                    ].material:
+                        tree = material.malt.shader_nodes
                 if tree:
                     return tree.get_custom_io(self.pass_graph_io_type)
-            else:
-                world = bpy.context.scene.world
-                if world:
-                    custom_io = world.malt_graph_types[self.pass_graph_type].custom_passes['Default'].io[self.pass_graph_io_type]
-                    result = []
-                    for parameter in custom_io.inputs:
-                        result.append({
-                            'name': parameter.name,
-                            'type': 'Texture', #TODO
-                            'subtype': parameter.parameter,
-                            'size': 0,
-                            'io': 'in',
-                        })
-                    for parameter in custom_io.outputs:
-                        result.append({
-                            'name': parameter.name,
-                            'type': 'Texture', #TODO
-                            'subtype': parameter.parameter,
-                            'size': 0,
-                            'io': 'out',
-                        })
-                    return result
+            elif world := bpy.context.scene.world:
+                custom_io = world.malt_graph_types[self.pass_graph_type].custom_passes['Default'].io[self.pass_graph_io_type]
+                result = [
+                    {
+                        'name': parameter.name,
+                        'type': 'Texture',  # TODO
+                        'subtype': parameter.parameter,
+                        'size': 0,
+                        'io': 'in',
+                    }
+                    for parameter in custom_io.inputs
+                ]
+                result.extend(
+                    {
+                        'name': parameter.name,
+                        'type': 'Texture',  # TODO
+                        'subtype': parameter.parameter,
+                        'size': 0,
+                        'io': 'out',
+                    }
+                    for parameter in custom_io.outputs
+                )
+                return result
         return []
 
     def get_source_socket_reference(self, socket):
         transpiler = self.id_data.get_transpiler()
         if transpiler.is_instantiable_type(socket.data_type):
             return transpiler.parameter_reference(self.get_source_name(), socket.name, 'out' if socket.is_output else 'in')
-        else:
-            source = self.get_source_code(transpiler)
-            return source.splitlines()[-1].split('=')[-1].split(';')[0]
+        source = self.get_source_code(transpiler)
+        return source.splitlines()[-1].split('=')[-1].split(';')[0]
 
     def get_source_code(self, transpiler):
         function = self.get_function()

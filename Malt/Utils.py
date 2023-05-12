@@ -17,8 +17,8 @@ class MaltLogger():
             logging.log(level, msg)
         else:
             self.repeated_msg += 1
-            if self.repeated_msg in (1, 10, 100, 1000):
-                logging.log(level, '(Repeated {}+ times)'.format(self.repeated_msg))
+            if self.repeated_msg in {1, 10, 100, 1000}:
+                logging.log(level, f'(Repeated {self.repeated_msg}+ times)')
 
     def debug(self, *args):
         self.log(logging.DEBUG, *args)
@@ -60,10 +60,7 @@ def scan_dirs(path, file_callback):
 
 def isinstance_str(object, class_name):
     classes = [object.__class__, *object.__class__.__bases__]
-    for cls in classes:
-        if cls.__name__ == class_name:
-            return True
-    return False
+    return any(cls.__name__ == class_name for cls in classes)
 
 import cProfile, io, pstats
 

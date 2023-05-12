@@ -3,31 +3,31 @@ from Malt.Utils import isinstance_str
 class PipelinePlugin():
 
     @classmethod
-    def poll_pipeline(self, pipeline):
+    def poll_pipeline(cls, pipeline):
         return True
 
     @classmethod
-    def register_pipeline_parameters(self, parameters):
+    def register_pipeline_parameters(cls, parameters):
         pass
 
     @classmethod
-    def register_pipeline_graphs(self):
+    def register_pipeline_graphs(cls):
         return []
 
     @classmethod
-    def register_graph_libraries(self, graphs):
+    def register_graph_libraries(cls, graphs):
         pass
 
     @classmethod
-    def blendermalt_register(self):
+    def blendermalt_register(cls):
         pass
 
     @classmethod
-    def blendermalt_unregister(self):
+    def blendermalt_unregister(cls):
         pass
 
     @classmethod
-    def blendermalt_register_nodeitems(self, MaltNodeItemClass):
+    def blendermalt_register_nodeitems(cls, MaltNodeItemClass):
         # Should return a dictionary where keys are category names and values are arrays of MaltNodeItems
         return {}
 

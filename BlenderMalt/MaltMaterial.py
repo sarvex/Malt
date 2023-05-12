@@ -46,10 +46,7 @@ class MaltMaterial(bpy.types.PropertyGroup):
                 path = self.shader_nodes.get_generated_source_path()
         else:
             path = bpy.path.abspath(self.shader_source, library=self.id_data.library)
-        if path:
-            return path
-        else:
-            return ''
+        return path if path else ''
     
     def draw_ui(self, layout, extension, material_parameters):
         layout.active = self.id_data.library is None #only local data can be edited
@@ -66,6 +63,7 @@ class MaltMaterial(bpy.types.PropertyGroup):
                 self.shader_nodes.graph_type = self.material_type
             self.id_data.update_tag()
             self.shader_nodes.update_tag()
+
         row = layout.row(align=True)
         row.template_ID(self, "shader_nodes")
         if self.shader_nodes:
@@ -81,16 +79,16 @@ class MaltMaterial(bpy.types.PropertyGroup):
 
         if source_path != '' and source_path.endswith(extension) == False:
             box = layout.box()
-            box.label(text='Wrong shader extension, should be '+extension+'.', icon='ERROR')
+            box.label(text=f'Wrong shader extension, should be {extension}.', icon='ERROR')
             return
-            
+
         if self.compiler_error != '':
             layout.operator("wm.malt_print_error", icon='ERROR').message = self.compiler_error
             box = layout.box()
             lines = self.compiler_error.splitlines()
             for line in lines:
                 box.label(text=line)
-        
+
         material_parameters.draw_ui(layout, filter=extension)
         self.parameters.draw_ui(layout)
 
@@ -193,7 +191,7 @@ def track_shader_changes(force_update=False, async_compilation=True):
     from BlenderMalt import MaltPipeline
     if MaltPipeline.is_malt_active() == False and force_update == False:
         return 1
-        
+
     global INITIALIZED
     global __TIMESTAMP
     global _MATERIALS
@@ -204,22 +202,21 @@ def track_shader_changes(force_update=False, async_compilation=True):
 
         for material in bpy.data.materials:
             path = material.malt.get_source_path()
-            if path not in needs_update:
-                if os.path.exists(path):
-                    stats = os.stat(path)
-                    if path not in _MATERIALS.keys() or stats.st_mtime > __TIMESTAMP:
-                        if path not in _MATERIALS:
-                            _MATERIALS[path] = None
-                        needs_update.append(path)
+            if path not in needs_update and os.path.exists(path):
+                stats = os.stat(path)
+                if path not in _MATERIALS.keys() or stats.st_mtime > __TIMESTAMP:
+                    if path not in _MATERIALS:
+                        _MATERIALS[path] = None
+                    needs_update.append(path)
 
         compiled_materials = {}
 
         from . import MaltPipeline
-        if len(needs_update) > 0:
+        if needs_update:
             compiled_materials = MaltPipeline.get_bridge().compile_materials(needs_update, async_compilation=async_compilation)
         else:
             compiled_materials = MaltPipeline.get_bridge().receive_async_compilation_materials()
-        
+
         if len(compiled_materials) > 0:
             for key, value in compiled_materials.items():
                 _MATERIALS[key] = value
@@ -232,7 +229,7 @@ def track_shader_changes(force_update=False, async_compilation=True):
             for screen in bpy.data.screens:
                 for area in screen.areas:
                     area.tag_redraw()
-        
+
         __TIMESTAMP = start_time
         INITIALIZED = True
     except:

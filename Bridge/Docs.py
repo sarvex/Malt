@@ -35,8 +35,8 @@ def build_docs(pipeline, docs_path):
                 default = default[1]
             parameters_result += f'* = {default}*  \n'
             if parameter.doc:
-                parameters_result += f'{tabs}>' + clean_str(parameter.doc) + "\n"
-    
+                parameters_result += f'{tabs}>{clean_str(parameter.doc)}' + "\n"
+
     parameters_string('Scene', parameters.scene)
     parameters_string('World', parameters.world)
     parameters_string('Camera', parameters.camera)
@@ -46,7 +46,7 @@ def build_docs(pipeline, docs_path):
     parameters_string('Light', parameters.light)
 
     open(os.path.join(output_path, 'settings.md'), 'w').write(parameters_result)
-    
+
     from textwrap import indent
 
     for graph in graphs.values():
@@ -85,13 +85,13 @@ def build_docs(pipeline, docs_path):
                 nonlocal result
                 result += '---\n'
                 result += f"{'#'*depth} **{function['meta'].get('label', function['name'])}**\n"
-                
+
                 if pass_type := function.get('pass_type'):
                     result += f">Graph Type / Pass : *{pass_type.replace('.', ' / ')}*\n\n"
 
                 if doc := function['meta'].get('doc'):
                     result += clean_str(doc) + "\n\n"
-                
+
                 inputs = {}
                 outputs = {}
                 if function['type'] != 'void':
@@ -103,7 +103,7 @@ def build_docs(pipeline, docs_path):
                         inputs[label] = parameter
                     if parameter['io'] in ('out', 'inout'):
                         outputs[label] = parameter
-                
+
                 def draw_params(type, dict):
                     if len(dict) == 0:
                         return
@@ -119,22 +119,22 @@ def build_docs(pipeline, docs_path):
                             type = parameter['type']
                         if subtype := parameter['meta'].get('subtype'):
                             type += f' | {subtype}'
-                        
+
                         type = f'( {type} )'
 
                         if default := parameter['meta'].get('default'):
                             type += f' - default = {default}'
-                        
+
                         params += f"- **{key}** *: {type}*  \n"
 
                         if doc := parameter['meta'].get('doc'):
-                            params += '>' + clean_str(doc) + "\n"
-                    
+                            params += f'>{clean_str(doc)}' + "\n"
+
                     result += indent(params, '\t')
-                
+
                 draw_params('Inputs', inputs)
                 draw_params('Outputs', outputs)
-            
+
             for category, items in categories.items():
                 if len(items) == 0:
                     continue
@@ -149,5 +149,5 @@ def build_docs(pipeline, docs_path):
                         result += f"### **{k}**\n"
                         for subcategory_function in v:
                             draw_function(subcategory_function, 4)
-        
+
             open(os.path.join(output_path, f'{graph.name}-graph.md'), 'w').write(result)

@@ -25,8 +25,7 @@ class RenderLayers(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Scene'] = Parameter('Scene', Type.OTHER)
+        inputs = {'Scene': Parameter('Scene', Type.OTHER)}
         inputs['Transparent Layers'] = Parameter(4, Type.INT, doc="""
             The maximum number of overlapping transparency layers.  
             Incresing this values lowers performance.
@@ -36,8 +35,7 @@ class RenderLayers(PipelineNode):
     
     @classmethod
     def reflect_outputs(cls):
-        outputs = {}
-        return outputs
+        return {}
     
     def setup_render_targets(self, resolution, custom_io):
         self.opaque_targets = {}
@@ -77,7 +75,7 @@ class RenderLayers(PipelineNode):
 
             self.fbo_color.clear([(0,0,0,0)]*len(self.fbo_color.targets))
             self.fbo_transparent.clear([(0,0,0,0)]*len(self.fbo_transparent.targets))
-            
+
             self.layer_index = 0
             self.layer_count = inputs['Transparent Layers'] + 1
             graph['parameters']['__RENDER_LAYERS__'] = self
@@ -85,17 +83,18 @@ class RenderLayers(PipelineNode):
                 graph['parameters']['__LAYER_INDEX__'] = self.layer_index
                 graph['parameters']['__LAYER_COUNT__'] = self.layer_count
                 self.pipeline.graphs['Render Layer'].run_source(self.pipeline, graph['source'], graph['parameters'], inputs, outputs)
-                results = []
-                for io in self.custom_io:
-                    if io['io'] == 'out' and io['type'] == 'Texture':
-                        results.append(outputs[io['name']])
+                results = [
+                    outputs[io['name']]
+                    for io in self.custom_io
+                    if io['io'] == 'out' and io['type'] == 'Texture'
+                ]
                 if i == 0:
                     self.pipeline.copy_textures(self.fbo_opaque, results)
                 else:
                     self.blend_transparency(results, self.fbo_transparent.targets, self.fbo_color)
                     self.pipeline.copy_textures(self.fbo_transparent, self.fbo_color.targets)
                 self.layer_index += 1     
-            
+
             self.blend_transparency(self.fbo_opaque.targets, self.fbo_transparent.targets, self.fbo_color)
             outputs.update(self.color_targets)
 

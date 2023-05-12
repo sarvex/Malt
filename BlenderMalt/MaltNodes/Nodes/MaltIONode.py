@@ -78,14 +78,12 @@ class MaltIONode(bpy.types.Node, MaltNode):
             return world.malt_graph_types[self.id_data.graph_type].custom_passes[self.custom_pass].io[self.io_type]
     
     def get_custom_parameters(self):
-        if self.allow_custom_parameters:
-            if self.allow_custom_pass:
-                io = self.get_custom_pass_io()
-                return io.outputs if self.is_output else io.inputs
-            else:
-                return self.custom_parameters
-        else:
+        if not self.allow_custom_parameters:
             return {}
+        if not self.allow_custom_pass:
+            return self.custom_parameters
+        io = self.get_custom_pass_io()
+        return io.outputs if self.is_output else io.inputs
     
     def get_dynamic_parameter_types(self):
         graph = self.id_data.get_pipeline_graph()
@@ -124,8 +122,7 @@ class MaltIONode(bpy.types.Node, MaltNode):
                 else:
                     if socket.name == 'result':
                         code += transpiler.declaration(socket.data_type, socket.array_size, socket.name)
-                    initialization = socket.get_source_initialization()
-                    if initialization:
+                    if initialization := socket.get_source_initialization():
                         code += transpiler.asignment(socket.get_source_reference(), initialization)
             if custom_outputs != '':
                 graph_io = self.id_data.get_pipeline_graph().graph_io[self.io_type]
@@ -158,58 +155,51 @@ class MaltIONode(bpy.types.Node, MaltNode):
     
     def draw_buttons(self, context, layout):
         return #TODO: only 1 custom pass signature for now
-        if self.allow_custom_pass and (self.is_output or self.allow_custom_parameters):
-            row = layout.row(align=True)
-            row.prop(self, 'custom_pass', text='Custom Pass')
-            row.operator('wm.malt_add_custom_pass', text='', icon='ADD').graph_type = self.id_data.graph_type
-            if self.custom_pass != 'Default':
-                def remove():
-                    custom_passes = context.scene.world.malt_graph_types[self.id_data.graph_type].custom_passes
-                    custom_passes.remove(custom_passes.find(self.custom_pass))
-                    #self.custom_pass = 'Default'
-                row.operator('wm.malt_callback', text='', icon='REMOVE').callback.set(remove)
     
     def draw_buttons_ext(self, context, layout):
-        if self.allow_custom_parameters:
-            def refresh():
-                #TODO: Overkill
-                for tree in bpy.data.node_groups:
-                    if tree.bl_idname == 'MaltTree':
-                        tree.reload_nodes()
-                        tree.update_ext(force_update=True)
-            layout.operator("wm.malt_callback", text='Reload', icon='FILE_REFRESH').callback.set(refresh, 'Reload')
-            def draw_parameters_list(owner, parameters_key):
-                row = layout.row()
-                index_key = f'{parameters_key}_index'
-                row.template_list('COMMON_UL_UI_List', '', owner, parameters_key, owner, index_key)
-                col = row.column()
-                parameters = getattr(owner, parameters_key)
-                index = getattr(owner, index_key)
-                def add_custom_socket():
-                    new_param = parameters.add()
-                    new_param.graph_type = self.id_data.graph_type
-                    new_param.io_type = self.io_type
-                    new_param.is_output = self.is_output
-                    name = f"Custom {'Output' if new_param.is_output else 'Input'}"
-                    i = 1
-                    #TODO: Check against default parameters
-                    while f'{name} {i}' in parameters.keys():
-                        i += 1
-                    new_param.name = f'{name} {i}'
-                add_row = col.row()
-                graph = self.id_data.get_pipeline_graph()
-                if (self.is_output and graph.language == 'GLSL' and
-                len(parameters) >= (8 - graph.graph_io[self.io_type].custom_output_start_index) and
-                self.id_data.graph_type.endswith("(Group)") == False): 
-                    add_row.enabled = False
-                add_row.operator("wm.malt_callback", text='', icon='ADD').callback.set(add_custom_socket, 'Add')
-                def remove_custom_socket():
-                    parameters.remove(index)
-                col.operator("wm.malt_callback", text='', icon='REMOVE').callback.set(remove_custom_socket, 'Remove')
-            if self.allow_custom_pass:
-                draw_parameters_list(self.get_custom_pass_io(), 'outputs' if self.is_output else 'inputs')
-            else:
-                draw_parameters_list(self, 'custom_parameters')
+        if not self.allow_custom_parameters:
+            return
+        def refresh():
+            #TODO: Overkill
+            for tree in bpy.data.node_groups:
+                if tree.bl_idname == 'MaltTree':
+                    tree.reload_nodes()
+                    tree.update_ext(force_update=True)
+
+        layout.operator("wm.malt_callback", text='Reload', icon='FILE_REFRESH').callback.set(refresh, 'Reload')
+        def draw_parameters_list(owner, parameters_key):
+            row = layout.row()
+            index_key = f'{parameters_key}_index'
+            row.template_list('COMMON_UL_UI_List', '', owner, parameters_key, owner, index_key)
+            col = row.column()
+            parameters = getattr(owner, parameters_key)
+            index = getattr(owner, index_key)
+            def add_custom_socket():
+                new_param = parameters.add()
+                new_param.graph_type = self.id_data.graph_type
+                new_param.io_type = self.io_type
+                new_param.is_output = self.is_output
+                name = f"Custom {'Output' if new_param.is_output else 'Input'}"
+                i = 1
+                #TODO: Check against default parameters
+                while f'{name} {i}' in parameters.keys():
+                    i += 1
+                new_param.name = f'{name} {i}'
+            add_row = col.row()
+            graph = self.id_data.get_pipeline_graph()
+            if (self.is_output and graph.language == 'GLSL' and
+            len(parameters) >= (8 - graph.graph_io[self.io_type].custom_output_start_index) and
+            self.id_data.graph_type.endswith("(Group)") == False): 
+                add_row.enabled = False
+            add_row.operator("wm.malt_callback", text='', icon='ADD').callback.set(add_custom_socket, 'Add')
+            def remove_custom_socket():
+                parameters.remove(index)
+            col.operator("wm.malt_callback", text='', icon='REMOVE').callback.set(remove_custom_socket, 'Remove')
+
+        if self.allow_custom_pass:
+            draw_parameters_list(self.get_custom_pass_io(), 'outputs' if self.is_output else 'inputs')
+        else:
+            draw_parameters_list(self, 'custom_parameters')
     
     
 classes = [

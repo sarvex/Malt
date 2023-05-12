@@ -30,7 +30,7 @@ class MaltFunctionSubCategoryNode(bpy.types.Node, MaltFunctionNodeBase):
     
     def malt_setup(self, copy=None):
         #Keep the correct function when the subcategory list changes
-        if self.function_type != '' and self.function_type != self.function_enum:
+        if self.function_type not in ['', self.function_enum]:
             try: self.function_enum = self.function_type
             except:
                 try:

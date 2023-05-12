@@ -11,13 +11,15 @@ except:
     os.environ.pop("PIP_REQ_TRACKER", None)
 
 py_version = str(sys.version_info[0])+str(sys.version_info[1])
-malt_dependencies_path = os.path.join(malt_folder, '.Dependencies-{}'.format(py_version))
+malt_dependencies_path = os.path.join(
+    malt_folder, f'.Dependencies-{py_version}'
+)
 dependencies = ['glfw', 'PyOpenGL', 'PyOpenGL_accelerate', 'Pyrr', 'xxhash']
 for dependency in dependencies:
     try:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', dependency, '--target', malt_dependencies_path])
     except:
-        print('ERROR: pip install {} failed.'.format(dependency))
+        print(f'ERROR: pip install {dependency} failed.')
         import traceback
         traceback.print_exc()
 

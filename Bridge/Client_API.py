@@ -35,12 +35,12 @@ class Bridge():
         if not isinstance(sys.stdout, IOCapture):
             import os, tempfile, time
             date = time.strftime("%Y-%m-%d(%H-%M)")
-            log_path = os.path.join(tempfile.gettempdir(),'malt ' + date + '.log')
+            log_path = os.path.join(tempfile.gettempdir(), f'malt {date}.log')
             LOG.basicConfig(filename=log_path, level=LOG.DEBUG, format='Blender > %(message)s')
             sys.stdout = IOCapture(sys.stdout, log_path, LOG.INFO)
             sys.stderr = IOCapture(sys.stderr, log_path, LOG.ERROR)
             LOG.info('SETUP IOCapture')
-        
+
         import multiprocessing, random, string
         mp = multiprocessing.get_context('spawn')
 
@@ -65,7 +65,7 @@ class Bridge():
         listeners = {}
         bridge_to_malt = {}
         malt_to_bridge = {}
-        
+
         import multiprocessing.connection as connection
         def add_connection(name):
             address = ('localhost', 0)
@@ -94,7 +94,7 @@ class Bridge():
 
         for name, listener in listeners.items():
             bridge_to_malt[name] = listener.accept()
-        
+
         self.connections = bridge_to_malt
 
         params = self.connections['MAIN'].recv()
@@ -143,11 +143,7 @@ class Bridge():
         received = []
         if async_compilation == False:
             while True:
-                completed = True
-                for path in paths:
-                    if path not in received:
-                        completed = False
-                        break
+                completed = all(path in received for path in paths)
                 if completed:
                     break
                 msg = self.connections['MAIN'].recv()
@@ -189,20 +185,26 @@ class Bridge():
         #return ipc.SharedBuffer(ctype, size)
         requested_size = ctypes.sizeof(ctype) * size
         reuse_buffer = None
+        min_ref_count = 3 # shared_buffers + local buffer var + getrefcount ref
         for buffer in self.shared_buffers:
             release_flag = ctypes.c_bool.from_address(buffer._release_flag.data)
-            min_ref_count = 3 # shared_buffers + local buffer var + getrefcount ref
-            if release_flag.value == True and sys.getrefcount(buffer) == min_ref_count:
-                if buffer._buffer.size >= requested_size:
-                    if reuse_buffer is None or buffer._buffer.size < reuse_buffer._buffer.size:
-                        reuse_buffer = buffer
-        
+            if (
+                release_flag.value == True
+                and sys.getrefcount(buffer) == min_ref_count
+                and buffer._buffer.size >= requested_size
+                and (
+                    reuse_buffer is None
+                    or buffer._buffer.size < reuse_buffer._buffer.size
+                )
+            ):
+                reuse_buffer = buffer
+
         if reuse_buffer is None:
             min_size = 1024*1024
             new_size = max(requested_size * 2, min_size)
             reuse_buffer = ipc.SharedBuffer(ctypes.c_byte, new_size)
             self.shared_buffers.append(reuse_buffer)
-        
+
         ctypes.c_bool.from_address(reuse_buffer._release_flag.data).value = True
         reuse_buffer._ctype = ctype
         reuse_buffer._size = size

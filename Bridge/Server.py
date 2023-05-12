@@ -109,8 +109,7 @@ class PBO():
         wait = glClientWaitSync(self.sync, GL_SYNC_FLUSH_COMMANDS_BIT, 0)
         if wait == GL_ALREADY_SIGNALED:
             glBindBuffer(GL_PIXEL_PACK_BUFFER, self.handle[0])
-            result = glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY)
-            if result:
+            if result := glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY):
                 ctypes.memmove(self.buffer.buffer(), result, self.size)
                 glUnmapBuffer(GL_PIXEL_PACK_BUFFER)
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0)
@@ -143,14 +142,18 @@ class Viewport():
         self.stat_render_time = 0
     
     def get_print_stats(self):
-        return '\n'.join((
-            'Resolution : {}'.format(self.resolution),
-            'Sample : {} / {}'.format(self.pipeline.sample_count, len(self.pipeline.get_samples())),
-            'Sample Time : {:.3f} ms'.format((self.stat_render_time * 1000) / self.pipeline.sample_count),
-            'Total Time : {:.3f} s'.format(self.stat_render_time),
-            'Latency : {} frames'.format(len(self.pbos_active)),
-            'Max Latency : {} frames'.format(self.stat_max_frame_latency),
-        ))
+        return '\n'.join(
+            (
+                f'Resolution : {self.resolution}',
+                f'Sample : {self.pipeline.sample_count} / {len(self.pipeline.get_samples())}',
+                'Sample Time : {:.3f} ms'.format(
+                    (self.stat_render_time * 1000) / self.pipeline.sample_count
+                ),
+                'Total Time : {:.3f} s'.format(self.stat_render_time),
+                f'Latency : {len(self.pbos_active)} frames',
+                f'Max Latency : {self.stat_max_frame_latency} frames',
+            )
+        )
     
     def setup(self, new_buffers, resolution, scene, scene_update, renderdoc_capture):
         if self.resolution != resolution:
@@ -169,15 +172,13 @@ class Viewport():
                     self.target_format = GL_UNSIGNED_BYTE
                     self.final_texture = Texture(resolution, GL_RGBA8, self.target_format)
                 self.final_texture.channel_size = 1
-                self.final_target = RenderTarget([self.final_texture])
             else:
                 if self.bit_depth == 16:
                     self.target_format = GL_RGBA16F
                 elif self.bit_depth == 32:
                     self.target_format = GL_RGBA32F
                 self.final_texture = Texture(resolution, self.target_format)
-                self.final_target = RenderTarget([self.final_texture])
-        
+            self.final_target = RenderTarget([self.final_texture])
         if new_buffers:
             self.buffers = new_buffers
 
@@ -188,14 +189,14 @@ class Viewport():
         self.renderdoc_capture = renderdoc_capture
 
         self.stat_time_start = time.perf_counter()
-        
+
         if scene_update or self.scene is None:
             for key, proxy in scene.proxys.items():
                 proxy.resolve()
-            
+
             for obj in scene.objects:
                 obj.matrix = (ctypes.c_float * 16)(*obj.matrix)
-            
+
             scene.batches = self.pipeline.build_scene_batches(scene.objects)
             self.scene = scene
         else:
@@ -235,10 +236,7 @@ class Viewport():
             self.needs_more_samples = self.pipeline.needs_more_samples()
             if self.is_final_render == False or self.needs_more_samples == False:
                 pbos = None
-                if len(self.pbos_inactive) > 0:
-                    pbos = self.pbos_inactive.pop()
-                else:
-                    pbos = {}
+                pbos = self.pbos_inactive.pop() if len(self.pbos_inactive) > 0 else {}
                 for key, texture in result.items():
                     if texture and key in self.buffers.keys():
                         if key not in pbos.keys():
@@ -246,7 +244,7 @@ class Viewport():
                         texture = self.ensure_correct_format(key, texture)
                         pbos[key].setup(texture, self.buffers[key])
                 self.pbos_active.append(pbos)
-            
+
         if len(self.pbos_active) > 0:
             for i, pbos in reversed(list(enumerate(self.pbos_active))):
                 is_ready = True
@@ -260,14 +258,14 @@ class Viewport():
                         self.pbos_active = self.pbos_active[i+1:]
                         self.read_resolution = self.resolution
                     break
-            
+
             self.stat_render_time = time.perf_counter() - self.stat_time_start
             self.stat_max_frame_latency = max(len(self.pbos_active), self.stat_max_frame_latency)
-        
+
         if self.renderdoc_capture:
             renderdoc.capture_end()
             self.renderdoc_capture = False
-        
+
         return self.needs_more_samples == False and len(self.pbos_active) == 0
 
 

@@ -26,7 +26,7 @@ class MaltInlineNode(bpy.types.Node, MaltNode):
             if input.data_type != '' or input.get_linked():
                 last = i + 1
         variables = 'abcdefgh'[:min(last+1,8)]
-        
+
         inputs = {}
         for var in variables:
             inputs[var] = {'type': ''}
@@ -37,13 +37,12 @@ class MaltInlineNode(bpy.types.Node, MaltNode):
                     inputs[var] = {'type': linked.data_type, 'size': linked.array_size}
                 else:
                     inputs[var] = {'type': input.data_type, 'size': input.array_size}
-        
+
         outputs = { 'result' : {'type': ''} }
         if 'result' in self.outputs:
-            out = self.outputs['result'].get_linked()
-            if out:
+            if out := self.outputs['result'].get_linked():
                 outputs['result'] = {'type': out.data_type, 'size': out.array_size}
-        
+
         self.setup_sockets(inputs, outputs)
 
     def draw_buttons(self, context, layout):
@@ -57,7 +56,7 @@ class MaltInlineNode(bpy.types.Node, MaltNode):
             MaltNode.draw_socket(self, context, layout, socket, socket.name)
 
     def get_source_socket_reference(self, socket):
-        return '{}_0_{}'.format(self.get_source_name(), socket.name)
+        return f'{self.get_source_name()}_0_{socket.name}'
     
     def get_source_code(self, transpiler):
         code = ''

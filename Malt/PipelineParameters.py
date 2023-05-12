@@ -52,10 +52,7 @@ class Parameter():
     def from_uniform(cls, uniform):
         type, size = gl_type_to_malt_type(uniform.type)
         value = uniform.value
-        if size > 1:
-            value = tuple(value)
-        else:
-            value = value[0]
+        value = tuple(value) if size > 1 else value[0]
         #TODO: uniform length ??? (Arrays)
         return Parameter(value, type, size)
     
@@ -147,11 +144,14 @@ def gl_type_to_malt_type(gl_type):
 
     for type_name, type in types.items():
         if type_name in gl_name:
-            for size_name, size in sizes.items():
-                if size_name in gl_name:
-                    return (type, size)
-            return (type, 1)
-    
+            return next(
+                (
+                    (type, size)
+                    for size_name, size in sizes.items()
+                    if size_name in gl_name
+                ),
+                (type, 1),
+            )
     raise Exception(gl_name, ' Uniform type not supported')
 
 def glsl_type_to_malt_type(glsl_type):
@@ -178,11 +178,18 @@ def glsl_type_to_malt_type(glsl_type):
         'mat3' : 9,
         'mat4' : 16,
     }
-    for type_name, type in types.items():
-        if glsl_type.startswith(type_name):
-            for size_name, size in sizes.items():
-                if size_name in glsl_type:
-                    return (type, size)
-            return (type, 1)
-    
-    return None
+    return next(
+        (
+            next(
+                (
+                    (type, size)
+                    for size_name, size in sizes.items()
+                    if size_name in glsl_type
+                ),
+                (type, 1),
+            )
+            for type_name, type in types.items()
+            if glsl_type.startswith(type_name)
+        ),
+        None,
+    )

@@ -7,32 +7,30 @@ import OpenGL
 from OpenGL.GL import *
 from OpenGL.extensions import hasGLExtension
 
-if True: 
-    #For some reason PyOpenGL doesnt support the most common depth/stencil buffer by default ???
-    #https://sourceforge.net/p/pyopengl/bugs/223/
-    from OpenGL import images
-    images.TYPE_TO_ARRAYTYPE[GL_UNSIGNED_INT_24_8] = GL_UNSIGNED_INT
-    images.TIGHT_PACK_FORMATS[GL_UNSIGNED_INT_24_8] = 4
-    images.TYPE_TO_ARRAYTYPE[GL_HALF_FLOAT] = GL_HALF_FLOAT
-    from OpenGL import arrays
-    if arrays.ADT:
-        arrays.GL_CONSTANT_TO_ARRAY_TYPE[GL_HALF_FLOAT] = arrays.ADT(GL_HALF_FLOAT, GLhalfARB)
-    else:
-        class GLhalfFloatArray(ArrayDatatype, ctypes.POINTER(GLhalfARB)):
-            baseType = GLhalfARB
-            typeConstant = GL_HALF_FLOAT
-        arrays.GL_CONSTANT_TO_ARRAY_TYPE[GL_HALF_FLOAT] = GLhalfFloatArray
+#For some reason PyOpenGL doesnt support the most common depth/stencil buffer by default ???
+#https://sourceforge.net/p/pyopengl/bugs/223/
+from OpenGL import images
+images.TYPE_TO_ARRAYTYPE[GL_UNSIGNED_INT_24_8] = GL_UNSIGNED_INT
+images.TIGHT_PACK_FORMATS[GL_UNSIGNED_INT_24_8] = 4
+images.TYPE_TO_ARRAYTYPE[GL_HALF_FLOAT] = GL_HALF_FLOAT
+from OpenGL import arrays
+if arrays.ADT:
+    arrays.GL_CONSTANT_TO_ARRAY_TYPE[GL_HALF_FLOAT] = arrays.ADT(GL_HALF_FLOAT, GLhalfARB)
+else:
+    class GLhalfFloatArray(ArrayDatatype, ctypes.POINTER(GLhalfARB)):
+        baseType = GLhalfARB
+        typeConstant = GL_HALF_FLOAT
+    arrays.GL_CONSTANT_TO_ARRAY_TYPE[GL_HALF_FLOAT] = GLhalfFloatArray
 
 NULL = None
 GL_ENUMS = {}
 GL_NAMES = {}
 
-if True: #create new scope to import OpenGL
-    from OpenGL import GL
-    for e in dir(GL):
-        if e.startswith('GL_'):
-            GL_ENUMS[getattr(GL, e)] = e
-            GL_NAMES[e] = getattr(GL, e)
+from OpenGL import GL
+for e in dir(GL):
+    if e.startswith('GL_'):
+        GL_ENUMS[getattr(GL, e)] = e
+        GL_NAMES[e] = getattr(GL, e)
 
 class DrawQuery():
 
@@ -72,13 +70,12 @@ def gl_buffer(type, size, data=None):
         GL_BOOL : GLboolean,
     }
     gl_type = (types[type] * size)
-    if data:
-        try:
-            return gl_type(*data)
-        except:
-            return gl_type(data)
-    else:
+    if not data:
         return gl_type()
+    try:
+        return gl_type(*data)
+    except:
+        return gl_type(data)
 
 
 def buffer_to_string(buffer):

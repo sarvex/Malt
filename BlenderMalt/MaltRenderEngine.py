@@ -12,9 +12,7 @@ from . import MaltPipeline, MaltMeshes, MaltMaterial, CBlenderMalt
 
 CAPTURE = False
 
-WINM = None
-if platform.system() == 'Windows':
-    WINM = ctypes.WinDLL('winmm')
+WINM = ctypes.WinDLL('winmm') if platform.system() == 'Windows' else None
 
 def high_res_sleep(seconds):
     if WINM:
@@ -55,7 +53,7 @@ class MaltRenderEngine(bpy.types.RenderEngine):
             scene = Scene.Scene()
             self.scene = scene
         scene = self.scene
-        
+
         if hasattr(scene, 'proxys') == False:
             scene.proxys = {}
 
@@ -70,10 +68,10 @@ class MaltRenderEngine(bpy.types.RenderEngine):
         fps = r.fps / r.fps_base
         remap = r.frame_map_new / r.frame_map_old
         scene.time = (scene.frame / fps) * remap
-        
+
         def flatten_matrix(matrix):
             return [e for v in matrix.transposed() for e in v]
-        
+
         #Camera
         if depsgraph.mode == 'VIEWPORT':
             view_3d = context.region_data 
@@ -92,10 +90,10 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                     y=depsgraph.scene_eval.render.resolution_y
             ))
             scene.camera = Scene.Camera(camera_matrix, projection_matrix)
-        
+
         if request_scene_update == False:
             return scene
-        
+
         meshes = {}
 
         #Objects
@@ -103,18 +101,18 @@ class MaltRenderEngine(bpy.types.RenderEngine):
             if obj.display_type in ['TEXTURED','SOLID'] and obj.type in ('MESH','CURVE','SURFACE','META', 'FONT'):
                 name = MaltMeshes.get_mesh_name(obj)
                 if depsgraph.mode == 'RENDER':
-                    name = '___F12___' + name
-                
+                    name = f'___F12___{name}'
+
                 if name not in meshes:
                     # (Uses obj.original) Malt Parameters are not present in the evaluated mesh
                     parameters = obj.original.data.malt_parameters.get_parameters(overrides, scene.proxys)
                     malt_mesh = None
-                    
+
                     if depsgraph.mode == 'VIEWPORT':
                         malt_mesh = MaltMeshes.get_mesh(obj)
                     else: #always load the mesh for final renders
                         malt_mesh = MaltMeshes.load_mesh(obj, name)
-                    
+
                     if malt_mesh:
                         meshes[name] = [Scene.Mesh(submesh, parameters) for submesh in malt_mesh]
                         for i, mesh in enumerate(meshes[name]):
@@ -125,7 +123,7 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                 mesh = meshes[name]
                 if mesh is None:
                     return
-                
+
                 scale = matrix.to_scale()
                 mirror_scale = scale[0]*scale[1]*scale[2] < 0.0
                 matrix = flatten_matrix(matrix)
@@ -133,8 +131,8 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                 obj_parameters = obj.malt_parameters.get_parameters(overrides, scene.proxys)
                 obj_parameters['ID'] = id
 
-                tags = set(collection.name for collection in obj.original.users_collection)
-                
+                tags = {collection.name for collection in obj.original.users_collection}
+
                 if len(obj.material_slots) > 0:
                     for i, slot in enumerate(obj.material_slots):
                         material = default_material
@@ -156,7 +154,7 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                     if override_material: material = override_material
                     result = Scene.Object(matrix, mesh[0], material, obj_parameters, mirror_scale, tags)
                     scene.objects.append(result)
-           
+
             elif obj.type == 'LIGHT':
                 if obj.data.type == 'AREA':
                     return #Not supported
@@ -186,7 +184,7 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                 else:
                     #Scaling too ????
                     light.matrix = flatten_matrix(matrix.inverted())
-                
+
                 scene.lights.append(light)
 
         is_f12 = depsgraph.mode == 'RENDER'
@@ -197,11 +195,13 @@ class MaltRenderEngine(bpy.types.RenderEngine):
                 add_object(obj, obj.matrix_world, id)
 
         for instance in depsgraph.object_instances:
-            if instance.instance_object:
-                if is_f12 or instance.parent.visible_in_viewport_get(context.space_data):
-                    id = abs(instance.random_id) % (2**16)
-                    add_object(instance.instance_object, instance.matrix_world, id)
-        
+            if instance.instance_object and (
+                is_f12
+                or instance.parent.visible_in_viewport_get(context.space_data)
+            ):
+                id = abs(instance.random_id) % (2**16)
+                add_object(instance.instance_object, instance.matrix_world, id)
+
         return scene
     
     def get_AOVs(self, scene):
@@ -288,9 +288,10 @@ class MaltRenderEngine(bpy.types.RenderEngine):
         self.request_scene_update = True
 
         for update in depsgraph.updates:
-            if update.is_updated_geometry:
-                if isinstance(update.id, bpy.types.Object):
-                    MaltMeshes.unload_mesh(update.id)
+            if update.is_updated_geometry and isinstance(
+                update.id, bpy.types.Object
+            ):
+                MaltMeshes.unload_mesh(update.id)
 
     def view_draw(self, context, depsgraph):
         if self.bridge is not MaltPipeline.get_bridge():
@@ -446,13 +447,13 @@ def get_panels():
         'DATA_PT_area',
     }
 
-    panels = []
-    for panel in bpy.types.Panel.__subclasses__():
-        if hasattr(panel, 'COMPAT_ENGINES') and 'BLENDER_RENDER' in panel.COMPAT_ENGINES:
-            if panel.__name__ not in exclude_panels:
-                panels.append(panel)
-
-    return panels
+    return [
+        panel
+        for panel in bpy.types.Panel.__subclasses__()
+        if hasattr(panel, 'COMPAT_ENGINES')
+        and 'BLENDER_RENDER' in panel.COMPAT_ENGINES
+        and panel.__name__ not in exclude_panels
+    ]
 
 def register():
     for cls in classes:

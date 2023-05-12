@@ -5,9 +5,11 @@ def scan_dirs(path, file_callback):
             extension = e.name.split('.')[-1]
             if extension in ('py','glsl','h','c','cpp'):
                 file_callback(e)
-        if e.is_dir():
-            if e.name.startswith('.') or e.name.startswith('__'):
-                continue
+        if (
+            e.is_dir()
+            and not e.name.startswith('.')
+            and not e.name.startswith('__')
+        ):
             scan_dirs(e, file_callback)
 
 
@@ -21,15 +23,14 @@ def fix_whitespace(path):
                 while i < len(lines) - 1:
                     i += 1
                     found_next_line = False
-                    if lines[i].isspace() == False:
-                        for c in lines[i]:
-                            if c.isspace():
-                                new_line += c
-                            else:
-                                break
-                        found_next_line = True
-                    else:
+                    if lines[i].isspace() != False:
                         continue
+                    for c in lines[i]:
+                        if c.isspace():
+                            new_line += c
+                        else:
+                            break
+                    found_next_line = True
                     if found_next_line:
                         break
             else:

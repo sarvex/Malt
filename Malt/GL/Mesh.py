@@ -18,16 +18,19 @@ class Mesh():
         self.EBO = gl_buffer(GL_INT, 1)
         index_buffer = index
         #make sure it's an uint32 c array
-        if isinstance(index_buffer, ctypes.Array) == False or index_buffer._type_ != ctypes.c_uint32:
+        if (
+            not isinstance(index_buffer, ctypes.Array)
+            or index_buffer._type_ != ctypes.c_uint32
+        ):
             index_buffer = gl_buffer(GL_UNSIGNED_INT, len(index), index)
         glGenBuffers(1, self.EBO)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.EBO[0])
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(index_buffer) * 4, index_buffer, GL_STATIC_DRAW)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
-        
+
         def load_VBO(data):
             #make sure it's a float c array
-            if isinstance(data, ctypes.Array) == False or data._type_ != ctypes.c_float:
+            if not isinstance(data, ctypes.Array) or data._type_ != ctypes.c_float:
                 data = gl_buffer(GL_FLOAT, len(data), data)
             VBO = gl_buffer(GL_INT, 1)
             glGenBuffers(1, VBO)
@@ -35,7 +38,7 @@ class Mesh():
             glBufferData(GL_ARRAY_BUFFER, len(data) * 4, data, GL_STATIC_DRAW)
             glBindBuffer(GL_ARRAY_BUFFER, 0)
             return VBO
-        
+
         self.position = load_VBO(position)
         if normal:
             self.normal = load_VBO(normal)

@@ -4,7 +4,7 @@ SKIP_TERMS = ['image','atomic','barrier','memory','shadow','noise']
 
 DEFINES = ['in','out','inout','uniform','varying','layout(index)','discard','uint unsigned int','atomic_uint uint']
 
-DEFINES = ''.join(['#define ' + define + '\n' for define in DEFINES])
+DEFINES = ''.join([f'#define {define}' + '\n' for define in DEFINES])
 
 GENERICS = {
     'genType': ['float',  'vec2',  'vec3',  'vec4'],
@@ -23,7 +23,7 @@ FUNCTIONS = ''
 
 def add_type(type_name):
     global TYPES
-    TYPES += 'struct ' + type_name + ' {};\n'
+    TYPES += f'struct {type_name}' + ' {};\n'
 
 def add_generic_type(type_name):
     if type_name.startswith('g') and type_name not in BUILTINS:
@@ -37,7 +37,7 @@ for generic in GENERICS.values():
 
 for mat_type in ['mat2','mat3','mat4','mat2x2','mat2x3','mat2x4','mat3x2','mat3x3','mat3x4','mat4x2','mat4x3','mat4x4']:
     add_type(mat_type)
-    add_type('d'+mat_type)
+    add_type(f'd{mat_type}')
 
 def output_function(signatures, docstring):
     generic_types = []
@@ -49,9 +49,12 @@ def output_function(signatures, docstring):
         if _type.startswith('['):
             has_optional = True
         _type = _type.split(' ')[-1]
-        if _type.startswith('g') or _type.endswith('vec') or _type.endswith('mat'):
-            if _type not in generic_types:
-                generic_types.append(_type)
+        if (
+            _type.startswith('g')
+            or _type.endswith('vec')
+            or _type.endswith('mat')
+        ) and _type not in generic_types:
+            generic_types.append(_type)
     resolve_generics(signatures, generic_types, has_optional, docstring)
 
 def resolve_generics(signatures, generic_types, has_optional, docstring):
@@ -65,22 +68,22 @@ def resolve_generics(signatures, generic_types, has_optional, docstring):
                 _signatures[-1][1]= _signatures[-1][1].replace('[','').replace(']','')
             resolve_generics(_signatures, copy.deepcopy(generic_types), False, docstring)
     else:
-        string = '//' + docstring + '\n'
+        string = f'//{docstring}' + '\n'
         if len(generic_types) > 0:
             string += 'template<'
             while len(generic_types) > 0:
                 _type = generic_types.pop(0)
                 add_generic_type(_type)
-                string += 'typename '+_type
+                string += f'typename {_type}'
                 if len(generic_types) > 0:
                     string += ', '
             string += '> '
 
         func = signatures.pop(0)
-        string += func[0] + ' ' + func[1] + '('
+        string += f'{func[0]} {func[1]}('
         while len(signatures) > 0:
             param = signatures.pop(0)
-            string += param[0] + ' ' + param[1]
+            string += f'{param[0]} {param[1]}'
             if len(signatures) > 0:
                 string += ', '
         string += ');'
@@ -99,26 +102,26 @@ for entry in os.listdir('gl4'):
                         print(entry,'---------------------------------------------------------')
                         docstring = d['refentry']['refnamediv']['refpurpose']
                         synops = d['refentry']['refsynopsisdiv']['funcsynopsis']
-                        if isinstance(synops, list) == False:
+                        if not isinstance(synops, list):
                             synops = [synops]
                         for synop in synops:
                             functions = synop['funcprototype']
-                            if isinstance(functions, list) == False:
+                            if not isinstance(functions, list):
                                 functions = [functions]
                             for function in functions:
                                 name = function['funcdef']['function']
                                 return_type = function['funcdef']['#text']
                                 signatures = [[return_type, name]]
-                                declaration = return_type + ' ' + name + '('
+                                declaration = f'{return_type} {name}('
                                 parameters = function['paramdef']
-                                if isinstance(parameters, str) == False: #not void
-                                    if isinstance(parameters, list) == False:
+                                if not isinstance(parameters, str): #not void
+                                    if not isinstance(parameters, list):
                                         parameters = [parameters]
                                     for parameter in parameters:
                                         param_type = parameter['#text']
                                         param_name = parameter['parameter']
                                         signatures.append([param_type, param_name])
-                                        declaration += param_type + ' ' + param_name + ', '
+                                        declaration += f'{param_type} {param_name}, '
                                 if declaration.endswith(', '):
                                     declaration = declaration[:-2]
                                 declaration += ');'

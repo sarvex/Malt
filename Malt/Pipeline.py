@@ -82,10 +82,10 @@ class Pipeline():
         self.graphs[graph.name] = graph
     
     def get_graphs(self):
-        result = {}
-        for name, graph in self.graphs.items():
-            result[name] = graph.get_serializable_copy()
-        return result
+        return {
+            name: graph.get_serializable_copy()
+            for name, graph in self.graphs.items()
+        }
 
     def setup_resources(self):
         self.common_buffer = Common.CommonBuffer()
@@ -129,11 +129,10 @@ class Pipeline():
     def find_shader_path(self, path, search_paths=[]):
         if os.path.exists(path):
             return path
-        else:
-            for shader_path in self.SHADER_INCLUDE_PATHS + search_paths:
-                full_path = os.path.join(shader_path, path)
-                if os.path.exists(full_path):
-                    return full_path
+        for shader_path in self.SHADER_INCLUDE_PATHS + search_paths:
+            full_path = os.path.join(shader_path, path)
+            if os.path.exists(full_path):
+                return full_path
         return None
     
     def compile_shader_from_source(self, source, include_paths=[], defines=[]):
@@ -147,7 +146,7 @@ class Pipeline():
     def compile_material(self, shader_path, search_paths=[]):
         try:
             file_dir = path.dirname(shader_path)
-            source = '#include "{}"'.format(path.basename(shader_path))
+            source = f'#include "{path.basename(shader_path)}"'
             material_type = shader_path.split('.')[-2]
             for graph in self.graphs.values():
                 if shader_path.endswith(graph.file_extension):
@@ -280,21 +279,21 @@ class Pipeline():
                 if 'normal_scale' not in mesh_dict:
                     mesh_dict['normal_scale'] = []
                 mesh_dict['normal_scale'].append(obj)
-        
+
         # Assume at least 64kb of UBO storage (d3d11 requirement) and max element size of mat4
         max_instances = 1000
         models = (max_instances * (ctypes.c_float * 16))()
         ids = (max_instances * ctypes.c_uint)()
 
-        for material, meshes in result.items():
+        for meshes in result.values():
             for mesh, scale_groups in meshes.items():
                 for scale_group, objs in scale_groups.items():
                     batches = []
                     scale_groups[scale_group] = batches
-                    
+
                     i = 0
                     batch_length = len(objs)
-                    
+
                     while i < batch_length:
                         instance_i = i % max_instances
                         models[instance_i] = objs[i].matrix
@@ -321,7 +320,7 @@ class Pipeline():
                                 'BATCH_MODELS':models_UBO,
                                 'BATCH_IDS':ids_UBO,
                             })
-            
+
         return result
     
     def draw_scene_pass(self, render_target, scene_batches, pass_name=None, default_shader=None, shader_resources={}, depth_test_function=GL_LEQUAL):
@@ -339,21 +338,21 @@ class Pipeline():
             shader = default_shader
             if material and pass_name in material.shader and material.shader[pass_name]:
                 shader = material.shader[pass_name]
-            
+
             for resource in shader_resources.values():
                 resource.shader_callback(shader)
-            
+
             shader.bind()
-            
+
             precomputed_tangents_uniform = shader.uniforms.get('PRECOMPUTED_TANGENTS')
             _precomputed_tangents = None
             _scale_group = None
             _color_is_srgb = None
-            
+
             meshes = scene_batches[material]
             for mesh in meshes.keys():
                 mesh.mesh.bind()
-                
+
                 double_sided = mesh.parameters['double_sided']
                 if double_sided != _double_sided:
                     _double_sided = double_sided
@@ -362,23 +361,24 @@ class Pipeline():
                     else:
                         glEnable(GL_CULL_FACE)
                         glCullFace(GL_BACK)
-                
+
                 color_is_srgb = tuple(mesh.mesh.color_is_srgb)
-                if color_is_srgb != _color_is_srgb :
-                    if 'COLOR_IS_SRGB' in shader.uniforms:
-                        shader.uniforms['COLOR_IS_SRGB'].bind(color_is_srgb)
-                        _color_is_srgb = color_is_srgb
+                if (
+                    color_is_srgb != _color_is_srgb
+                    and 'COLOR_IS_SRGB' in shader.uniforms
+                ):
+                    shader.uniforms['COLOR_IS_SRGB'].bind(color_is_srgb)
+                    _color_is_srgb = color_is_srgb
 
                 if precomputed_tangents_uniform:
                     precomputed_tangents = mesh.parameters['precomputed_tangents']
                     if _precomputed_tangents != precomputed_tangents:
                         _precomputed_tangents = precomputed_tangents
-                        precomputed_tangents_uniform.bind(precomputed_tangents)
-
+                        precomputed_tangents_uniform.bind(_precomputed_tangents)
                 for scale_group, batches in meshes[mesh].items():
                     if scale_group != _scale_group:
                         _scale_group = scale_group
-                        if scale_group == 'normal_scale':
+                        if _scale_group == 'normal_scale':
                             glFrontFace(GL_CCW)
                             if 'MIRROR_SCALE' in shader.uniforms:
                                 shader.uniforms['MIRROR_SCALE'].bind(False)
@@ -386,7 +386,7 @@ class Pipeline():
                             glFrontFace(GL_CW)
                             if 'MIRROR_SCALE' in shader.uniforms:
                                 shader.uniforms['MIRROR_SCALE'].bind(True)
-                
+
                     for batch in batches:
                         batch['BATCH_MODELS'].bind(shader.uniform_blocks['BATCH_MODELS'])
                         batch['BATCH_IDS'].bind(shader.uniform_blocks['BATCH_IDS'])

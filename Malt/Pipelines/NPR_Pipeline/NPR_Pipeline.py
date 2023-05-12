@@ -265,10 +265,16 @@ class NPR_Pipeline(Pipeline):
         opaque_batches = {}
         transparent_batches = {}
         for material, meshes in scene.batches.items():
-            if material and material.shader:
-                if material.shader['PRE_PASS'].uniforms['Settings.Transparency'].value[0] == True:
-                    transparent_batches[material] = meshes
-                    continue
+            if (
+                material
+                and material.shader
+                and material.shader['PRE_PASS']
+                .uniforms['Settings.Transparency']
+                .value[0]
+                == True
+            ):
+                transparent_batches[material] = meshes
+                continue
             opaque_batches[material] = meshes
         return opaque_batches, transparent_batches
 
@@ -277,24 +283,23 @@ class NPR_Pipeline(Pipeline):
         if self.sampling_grid_size != scene.world_parameters['Samples.Grid Size']:
             self.sampling_grid_size = scene.world_parameters['Samples.Grid Size']
             self.samples = None
-        
+
         self.is_new_frame = is_new_frame
-        
+
         sample_offset = self.get_sample(scene.world_parameters['Samples.Width'])
 
         opaque_batches, transparent_batches = self.get_scene_batches(scene)
-        
+
         self.common_buffer.load(scene, resolution, sample_offset, self.sample_count)
         scene.shader_resources = {
             'COMMON_UNIFORMS' : self.common_buffer
         }
-        
+
         result = {
             'COLOR': None,
             'DEPTH': None,
         }
-        graph = scene.world_parameters['Render']
-        if graph:
+        if graph := scene.world_parameters['Render']:
             IN = {'Scene' : scene}
             OUT = {'Color' : None}
             self.graphs['Render'].run_source(self, graph['source'], graph['parameters'], IN, OUT)
@@ -303,15 +308,18 @@ class NPR_Pipeline(Pipeline):
             result['DEPTH'] = result['Depth']
 
         #COMPOSITE DEPTH
-        if is_final_render and result['DEPTH'] is None:
-            if self.sample_count == len(self.samples) - 1:
-                normal_depth = Texture(resolution, GL_RGBA32F)
-                target = RenderTarget([normal_depth], Texture(resolution, GL_DEPTH_COMPONENT32F))
-                target.clear([(0,0,1,1)], 1)
-                self.common_buffer.load(scene, resolution)
-                self.draw_scene_pass(target, opaque_batches, 'PRE_PASS', self.default_shader, scene.shader_resources)
-                result['DEPTH'] = self.composite_depth.render(self, self.common_buffer, normal_depth, depth_channel=3)
-        
+        if (
+            is_final_render
+            and result['DEPTH'] is None
+            and self.sample_count == len(self.samples) - 1
+        ):
+            normal_depth = Texture(resolution, GL_RGBA32F)
+            target = RenderTarget([normal_depth], Texture(resolution, GL_DEPTH_COMPONENT32F))
+            target.clear([(0,0,1,1)], 1)
+            self.common_buffer.load(scene, resolution)
+            self.draw_scene_pass(target, opaque_batches, 'PRE_PASS', self.default_shader, scene.shader_resources)
+            result['DEPTH'] = self.composite_depth.render(self, self.common_buffer, normal_depth, depth_channel=3)
+
         return result
 
 

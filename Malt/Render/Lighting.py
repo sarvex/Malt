@@ -87,7 +87,7 @@ class ShadowMaps():
     def load(self, scene, spot_resolution, sun_resolution, point_resolution, sun_cascades):
         needs_setup = self.initialized is False
         self.initialized = True
-        
+
         new_settings = (spot_resolution, sun_resolution, point_resolution)
         current_settings = (self.spot_resolution, self.sun_resolution, self.point_resolution)
         if new_settings != current_settings:
@@ -95,14 +95,14 @@ class ShadowMaps():
             self.sun_resolution = sun_resolution
             self.point_resolution = point_resolution
             needs_setup = True
-        
+
         spot_count = len([l for l in scene.lights if l.type == LIGHT_SPOT])
         if spot_count > self.max_spots:
             self.max_spots = spot_count
             needs_setup = True
-        
+
         sun_count = len([l for l in scene.lights if l.type == LIGHT_SUN])
-        sun_count  = sun_count * sun_cascades
+        sun_count *= sun_cascades
         if sun_count > self.max_suns:
             self.max_suns = sun_count
             needs_setup = True 
@@ -111,10 +111,10 @@ class ShadowMaps():
         if point_count > self.max_points:
             self.max_points = point_count
             needs_setup = True
-        
+
         if needs_setup:
             self.setup()
-        
+
         self.clear(spot_count, sun_count, point_count)
     
     def setup(self, create_fbos=True):
@@ -124,16 +124,20 @@ class ShadowMaps():
 
         if create_fbos:
             self.spot_fbos = []
-            for i in range(self.spot_depth_t.length):
-                self.spot_fbos.append(RenderTarget([], ArrayLayerTarget(self.spot_depth_t, i)))
-            
+            self.spot_fbos.extend(
+                RenderTarget([], ArrayLayerTarget(self.spot_depth_t, i))
+                for i in range(self.spot_depth_t.length)
+            )
             self.sun_fbos = []
-            for i in range(self.sun_depth_t.length):
-                self.sun_fbos.append(RenderTarget([], ArrayLayerTarget(self.sun_depth_t, i)))
-                    
+            self.sun_fbos.extend(
+                RenderTarget([], ArrayLayerTarget(self.sun_depth_t, i))
+                for i in range(self.sun_depth_t.length)
+            )
             self.point_fbos = []
-            for i in range(self.point_depth_t.length*6):
-                self.point_fbos.append(RenderTarget([], ArrayLayerTarget(self.point_depth_t, i)))
+            self.point_fbos.extend(
+                RenderTarget([], ArrayLayerTarget(self.point_depth_t, i))
+                for i in range(self.point_depth_t.length * 6)
+            )
         
     def clear(self, spot_count, sun_count, point_count):
         for i in range(spot_count):

@@ -23,16 +23,14 @@ class MainPass(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Scene'] = Parameter('Scene', Type.OTHER)
+        inputs = {'Scene': Parameter('Scene', Type.OTHER)}
         inputs['Normal Depth'] = Parameter('', Type.TEXTURE)
         inputs['ID'] = Parameter('', Type.TEXTURE)
         return inputs
     
     @classmethod
     def reflect_outputs(cls):
-        outputs = {}
-        return outputs
+        return {}
     
     def setup_render_targets(self, resolution, t_depth, custom_io):
         self.custom_targets = {}
@@ -52,32 +50,32 @@ class MainPass(PipelineNode):
         inputs = parameters['IN']
         outputs = parameters['OUT']
         custom_io = parameters['CUSTOM_IO']
-        
+
         scene = inputs['Scene']
         if scene is None:
             return
-        t_normal_depth = inputs['Normal Depth']
         t_id = inputs['ID']
 
         shader_resources = scene.shader_resources.copy()
-        if t_normal_depth:
+        if t_normal_depth := inputs['Normal Depth']:
             shader_resources['IN_NORMAL_DEPTH'] = TextureShaderResource('IN_NORMAL_DEPTH', t_normal_depth)
         if t_id:
             shader_resources['IN_ID'] = TextureShaderResource('IN_ID', t_id)
-        
+
         t_depth = shader_resources['T_DEPTH'].texture
         if self.pipeline.resolution != self.resolution or self.custom_io != custom_io or t_depth != self.t_depth:
             self.setup_render_targets(self.pipeline.resolution, t_depth, custom_io)
             self.resolution = self.pipeline.resolution
             self.custom_io = custom_io
-        
+
         for io in custom_io:
-            if io['io'] == 'in':
-                if io['type'] == 'Texture':#TODO
-                    from Malt.SourceTranspiler import GLSLTranspiler
-                    glsl_name = GLSLTranspiler.custom_io_reference('IN', 'MAIN_PASS_PIXEL_SHADER', io['name'])
-                    shader_resources['CUSTOM_IO'+glsl_name] = TextureShaderResource(glsl_name, inputs[io['name']])
-                    
+            if io['io'] == 'in' and io['type'] == 'Texture':
+                from Malt.SourceTranspiler import GLSLTranspiler
+                glsl_name = GLSLTranspiler.custom_io_reference('IN', 'MAIN_PASS_PIXEL_SHADER', io['name'])
+                shader_resources[f'CUSTOM_IO{glsl_name}'] = TextureShaderResource(
+                    glsl_name, inputs[io['name']]
+                )
+
         self.fbo.clear([(0,0,0,0)] * len(self.fbo.targets))
         self.pipeline.draw_scene_pass(self.fbo, scene.batches, 'MAIN_PASS', self.pipeline.default_shader['MAIN_PASS'], 
             shader_resources, GL_EQUAL)

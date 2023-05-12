@@ -26,14 +26,11 @@ class PrePass(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Scene'] = Parameter('Scene', Type.OTHER)
-        return inputs
+        return {'Scene': Parameter('Scene', Type.OTHER)}
     
     @classmethod
     def reflect_outputs(cls):
-        outputs = {}
-        outputs['Scene'] = Parameter('Scene', Type.OTHER)
+        outputs = {'Scene': Parameter('Scene', Type.OTHER)}
         outputs['Normal Depth'] = Parameter('', Type.TEXTURE)
         outputs['ID'] = Parameter('', Type.TEXTURE)
         return outputs

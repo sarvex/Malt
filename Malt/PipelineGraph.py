@@ -144,10 +144,11 @@ class GLSLPipelineGraph(PipelineGraph):
     def generate_source(self, parameters):
         import textwrap
         from Malt.SourceTranspiler import GLSLTranspiler
-        code = ''
-        for graph_io in self.graph_io.values():
-            if graph_io.name in parameters.keys() and graph_io.define:
-                code += '#define {}\n'.format(graph_io.define)
+        code = ''.join(
+            f'#define {graph_io.define}\n'
+            for graph_io in self.graph_io.values()
+            if graph_io.name in parameters.keys() and graph_io.define
+        )
         code += '\n\n' + self.default_global_scope + '\n\n'
         for file in self.lib_files:
             code += f'#include "{file}"\n'
@@ -220,11 +221,11 @@ class PythonPipelineGraph(PipelineGraph):
             self.nodes[reflection['name']] = node_class
     
     def generate_source(self, parameters):
-        src = ''
-        for io in self.graph_io.keys():
-            if io in parameters.keys():
-                src += parameters[io]
-        return src
+        return ''.join(
+            parameters[io]
+            for io in self.graph_io.keys()
+            if io in parameters.keys()
+        )
     
     def run_source(self, pipeline, source, PARAMETERS, IN, OUT):
         try:

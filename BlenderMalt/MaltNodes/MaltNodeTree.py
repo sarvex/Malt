@@ -102,8 +102,7 @@ class MaltTree(bpy.types.NodeTree):
     
     #deprecated
     def get_library(self):
-        library_path = self.get_library_path()
-        if library_path:
+        if library_path := self.get_library_path():
             return get_libraries()[library_path]
         else:
             return get_empty_library()
@@ -111,21 +110,19 @@ class MaltTree(bpy.types.NodeTree):
     def get_full_library(self):
         #TODO: Cache
         graph = self.get_pipeline_graph()
-        library = self.get_library()
-        if library:
-            result = get_empty_library()
-            result['functions'].update(graph.functions)
-            result['structs'].update(graph.structs)
-            result['subcategories'].update(graph.subcategories)
-            result['functions'].update(library['functions'])
-            result['structs'].update(library['structs'])
-            return result
-        else:
+        if not (library := self.get_library()):
             return {
                 'functions' : graph.functions,
                 'structs' : graph.structs,
                 'subcategories' : graph.subcategories,
             }
+        result = get_empty_library()
+        result['functions'].update(graph.functions)
+        result['structs'].update(graph.structs)
+        result['subcategories'].update(graph.subcategories)
+        result['functions'].update(library['functions'])
+        result['structs'].update(library['structs'])
+        return result
     
     def get_pipeline_graph(self, graph_type=None):
         if graph_type is None: 
@@ -150,29 +147,33 @@ class MaltTree(bpy.types.NodeTree):
         for node in self.nodes:
             if node.bl_idname == 'MaltIONode' and node.io_type == io_type:
                 io = 'out' if node.is_output else 'in'
-                for parameter in node.get_custom_parameters():
-                    params.append({
+                params.extend(
+                    {
                         'name': parameter.name,
-                        'type': 'Texture', #TODO
+                        'type': 'Texture',  # TODO
                         'size': 0,
                         'io': io,
-                    })
+                    }
+                    for parameter in node.get_custom_parameters()
+                )
         return params
     
     def cast(self, from_type, to_type):
         cast_function = f'{to_type}_from_{from_type}'
         lib = self.get_full_library()
-        for function in lib['functions'].values():
-            if function['name'] == cast_function and len(function['parameters']) == 1:
-                #TODO: If more than 1 parameter, check if they have default values?
-                return function['name']
-        return None
+        return next(
+            (
+                function['name']
+                for function in lib['functions'].values()
+                if function['name'] == cast_function
+                and len(function['parameters']) == 1
+            ),
+            None,
+        )
     
     def get_struct_type(self, struct_type):
         lib = self.get_full_library()
-        if struct_type in lib['structs']:
-            return lib['structs'][struct_type]
-        return None
+        return lib['structs'][struct_type] if struct_type in lib['structs'] else None
     
     def get_generated_source_dir(self):
         import os, tempfile
@@ -188,9 +189,11 @@ class MaltTree(bpy.types.NodeTree):
             file_prefix = bpy.path.basename(self.library.filepath).split('.')[0]
         elif bpy.context.blend_data.is_saved:  
             file_prefix = bpy.path.basename(bpy.context.blend_data.filepath).split('.')[0]
-        pipeline_graph = self.get_pipeline_graph()
-        if pipeline_graph:
-            return os.path.join(self.get_generated_source_dir(),'{}-{}{}'.format(file_prefix, self.name, pipeline_graph.file_extension))
+        if pipeline_graph := self.get_pipeline_graph():
+            return os.path.join(
+                self.get_generated_source_dir(),
+                f'{file_prefix}-{self.name}{pipeline_graph.file_extension}',
+            )
         return None
     
     def get_generated_source(self, force_update=False):
@@ -269,12 +272,12 @@ class MaltTree(bpy.types.NodeTree):
 
         if self.get_pipeline_graph() is None:
             return
-        
+
         if self.subscribed == False:
             bpy.msgbus.subscribe_rna(key=self.path_resolve('name', False),
                 owner=self, args=(None,), notify=lambda _ : self.update_ext(force_update=True))
             self.subscribed = True
-        
+
         links_str = ''
         for link in self.links:
             try:
@@ -294,15 +297,13 @@ class MaltTree(bpy.types.NodeTree):
                 try:
                     b = link.to_socket
                     a = b.get_linked(ignore_muted=False)
-                    if (a.array_size != b.array_size or 
-                        (a.data_type != b.data_type and
-                        self.cast(a.data_type, b.data_type) is None)):
-                        link.is_muted = True
-                    else:
-                        link.is_muted = False
+                    link.is_muted = a.array_size != b.array_size or (
+                        a.data_type != b.data_type
+                        and self.cast(a.data_type, b.data_type) is None
+                    )
                 except:
                     pass
-            
+
             source = self.get_generated_source(force_update=True)
             source_dir = self.get_generated_source_dir()
             source_path = self.get_generated_source_path()
@@ -317,7 +318,7 @@ class MaltTree(bpy.types.NodeTree):
             import traceback
             traceback.print_exc()
         self.disable_updates = False
-        
+
         # Force a depsgraph update. 
         # Otherwise these will be outddated in scene_eval
         self.update_tag()
@@ -364,20 +365,19 @@ def track_library_changes(force_update=False, is_initial_setup=False):
     from BlenderMalt import MaltPipeline
     if MaltPipeline.is_malt_active() == False and force_update == False:
         return 1
-    
+
     bridge = MaltPipeline.get_bridge()
     graphs = MaltPipeline.get_bridge().graphs
     updated_graphs = []
     if is_initial_setup == False:
-        for name, graph in graphs.items():
-            if graph.needs_reload():
-                updated_graphs.append(name)
-        if len(updated_graphs) > 0:        
+        updated_graphs.extend(
+            name for name, graph in graphs.items() if graph.needs_reload()
+        )
+        if updated_graphs:
             bridge.reload_graphs(updated_graphs)
             for graph_name in updated_graphs:
                 graph = graphs[graph_name]
-                preload_menus(graph.structs, graph.functions, graphs[graph_name])
-
+                preload_menus(graph.structs, graph.functions, graph)
     global __LIBRARIES
     global __TIMESTAMP
     start_time = time.time()
@@ -386,12 +386,8 @@ def track_library_changes(force_update=False, is_initial_setup=False):
     new_dic = {}
     for tree in bpy.data.node_groups:
         if tree.bl_idname == 'MaltTree' and tree.is_active():
-            src_path = tree.get_library_path()
-            if src_path:
-                if src_path in __LIBRARIES:
-                    new_dic[src_path] = __LIBRARIES[src_path]
-                else:
-                    new_dic[src_path] = None
+            if src_path := tree.get_library_path():
+                new_dic[src_path] = __LIBRARIES[src_path] if src_path in __LIBRARIES else None
     __LIBRARIES = new_dic
 
     needs_update = set()
@@ -403,18 +399,19 @@ def track_library_changes(force_update=False, is_initial_setup=False):
             else:
                 for sub_path in library['paths']:
                     sub_path = os.path.join(root_dir, sub_path)
-                    if os.path.exists(sub_path):
-                        # Don't track individual files granularly since macros can completely change them
-                        if os.stat(sub_path).st_mtime > __TIMESTAMP:
-                            needs_update.add(path)
-                            break
-    
-    if len(needs_update) > 0:
+                    if (
+                        os.path.exists(sub_path)
+                        and os.stat(sub_path).st_mtime > __TIMESTAMP
+                    ):
+                        needs_update.add(path)
+                        break
+
+    if needs_update:
         results = MaltPipeline.get_bridge().reflect_source_libraries(needs_update)
         for path, reflection in results.items():
             __LIBRARIES[path] = reflection
             preload_menus(reflection['structs'], reflection['functions'])
-        
+
     if is_initial_setup == False and max(len(needs_update), len(updated_graphs)) > 0:
         for tree in bpy.data.node_groups:
             if tree.bl_idname == 'MaltTree' and tree.is_active():
@@ -424,7 +421,7 @@ def track_library_changes(force_update=False, is_initial_setup=False):
                     tree.update_ext(force_track_shader_changes=False, force_update=True)
         from BlenderMalt import MaltMaterial
         MaltMaterial.track_shader_changes()
-    
+
     __TIMESTAMP = start_time
     return 0.1
 
@@ -686,11 +683,11 @@ def depsgraph_update(scene, depsgraph):
     from BlenderMalt import MaltPipeline
     if MaltPipeline.is_malt_active() == False:
         return
-    scene_updated = False
-    for deps_update in depsgraph.updates:
-        if isinstance(deps_update.id, bpy.types.Scene):
-            scene_updated = True
-    if scene_updated == False:
+    scene_updated = any(
+        isinstance(deps_update.id, bpy.types.Scene)
+        for deps_update in depsgraph.updates
+    )
+    if not scene_updated:
         return
     active_material_update()
 

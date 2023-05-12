@@ -1,12 +1,11 @@
 GL_ENUMS = {}
 GL_NAMES = {}
 
-if True: #create new scope to import OpenGL
-    from OpenGL import GL
-    for e in dir(GL):
-        if e.startswith('GL_'):
-            GL_ENUMS[getattr(GL, e)] = e
-            GL_NAMES[e] = getattr(GL, e)
+from OpenGL import GL
+for e in dir(GL):
+    if e.startswith('GL_'):
+        GL_ENUMS[getattr(GL, e)] = e
+        GL_NAMES[e] = getattr(GL, e)
 
 from OpenGL.GL import *
 

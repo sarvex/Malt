@@ -16,15 +16,11 @@ class SuperSamplingAA(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Color'] = Parameter('', Type.TEXTURE)
-        return inputs
+        return {'Color': Parameter('', Type.TEXTURE)}
     
     @classmethod
     def reflect_outputs(cls):
-        outputs = {}
-        outputs['Color'] = Parameter('', Type.TEXTURE)
-        return outputs
+        return {'Color': Parameter('', Type.TEXTURE)}
     
     def setup_render_targets(self, resolution):
         self.t_color = Texture(resolution, GL_RGBA16F)

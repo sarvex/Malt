@@ -4,11 +4,11 @@ from Malt.PipelinePlugin import PipelinePlugin, isinstance_str
 class PluginExample(PipelinePlugin):
 
     @classmethod
-    def poll_pipeline(self, pipeline):
+    def poll_pipeline(cls, pipeline):
         return isinstance_str(pipeline, 'NPR_Pipeline')
     
     @classmethod
-    def register_graph_libraries(self, graphs):
+    def register_graph_libraries(cls, graphs):
         library_path = os.path.join(os.path.dirname(__file__), 'Shaders')
         for graph in graphs.values():
             if graph.language == 'GLSL':

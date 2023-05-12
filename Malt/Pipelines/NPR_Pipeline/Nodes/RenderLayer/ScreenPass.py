@@ -26,11 +26,16 @@ class ScreenPass(PipelineNode):
     
     @classmethod
     def reflect_inputs(cls):
-        inputs = {}
-        inputs['Layer Only'] = Parameter(True, Type.BOOL, doc="""
+        inputs = {
+            'Layer Only': Parameter(
+                True,
+                Type.BOOL,
+                doc="""
             Draw only on top of the current layer geometry,
             to avoid accidentally covering previous layers.
-        """)
+        """,
+            )
+        }
         inputs['Scene'] = Parameter('Scene', Type.OTHER)
         inputs['Normal Depth'] = Parameter('', Type.TEXTURE)
         inputs['ID'] = Parameter('', Type.TEXTURE)
@@ -42,15 +47,11 @@ class ScreenPass(PipelineNode):
         material = parameters['PASS_MATERIAL']
         custom_io = parameters['CUSTOM_IO']
 
-        deferred_mode = inputs['Layer Only']
         scene = inputs['Scene']
-        t_normal_depth = inputs['Normal Depth']
         t_id = inputs['ID']
 
-        shader_resources = {}
-        if scene:
-            shader_resources = scene.shader_resources.copy()
-        if t_normal_depth:
+        shader_resources = scene.shader_resources.copy() if scene else {}
+        if t_normal_depth := inputs['Normal Depth']:
             shader_resources['IN_NORMAL_DEPTH'] = TextureShaderResource('IN_NORMAL_DEPTH', t_normal_depth)
         if t_id:
             shader_resources['IN_ID'] = TextureShaderResource('IN_ID', t_id)
@@ -58,34 +59,32 @@ class ScreenPass(PipelineNode):
         if self.pipeline.resolution != self.resolution or self.custom_io != custom_io:
             self.texture_targets = {}
             for io in custom_io:
-                if io['io'] == 'out':
-                    if io['type'] == 'Texture':#TODO
-                        self.texture_targets[io['name']] = Texture(self.pipeline.resolution, GL.GL_RGBA16F)
+                if io['io'] == 'out' and io['type'] == 'Texture':
+                    self.texture_targets[io['name']] = Texture(self.pipeline.resolution, GL.GL_RGBA16F)
             self.render_target = RenderTarget([*self.texture_targets.values()])
             self.resolution = self.pipeline.resolution
             self.custom_io = custom_io
-        
+
         self.render_target.clear([(0,0,0,0)]*len(self.texture_targets))
 
         if material and material.shader and 'SHADER' in material.shader:
             shader = material.shader['SHADER']
             for io in custom_io:
-                if io['io'] == 'in':
-                    if io['type'] == 'Texture':#TODO
-                        from Malt.SourceTranspiler import GLSLTranspiler
-                        glsl_name = GLSLTranspiler.custom_io_reference('IN', 'SCREEN_SHADER', io['name'])
-                        shader.textures[glsl_name] = inputs[io['name']]
+                if io['io'] == 'in' and io['type'] == 'Texture':
+                    from Malt.SourceTranspiler import GLSLTranspiler
+                    glsl_name = GLSLTranspiler.custom_io_reference('IN', 'SCREEN_SHADER', io['name'])
+                    shader.textures[glsl_name] = inputs[io['name']]
             self.pipeline.common_buffer.bind(shader.uniform_blocks['COMMON_UNIFORMS'])
             for resource in shader_resources.values():
                 resource.shader_callback(shader)
             shader.uniforms['RENDER_LAYER_MODE'].set_value(True)
+            deferred_mode = inputs['Layer Only']
             shader.uniforms['DEFERRED_MODE'].set_value(deferred_mode)
             self.pipeline.draw_screen_pass(shader, self.render_target)
-        
+
         for io in custom_io:
-            if io['io'] == 'out':
-                if io['type'] == 'Texture':#TODO
-                    outputs[io['name']] = self.texture_targets[io['name']]
+            if io['io'] == 'out' and io['type'] == 'Texture':
+                outputs[io['name']] = self.texture_targets[io['name']]
 
 
 NODE = ScreenPass    

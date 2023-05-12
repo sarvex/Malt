@@ -25,7 +25,9 @@ __CURRENT_DIR = path.dirname(path.realpath(__file__))
 __MALT_PATH = path.join(__CURRENT_DIR, '.MaltPath')
 if __MALT_PATH not in sys.path: sys.path.append(__MALT_PATH)
 _PY_VERSION = str(sys.version_info[0])+str(sys.version_info[1])
-__MALT_DEPENDENCIES_PATH = path.join(__MALT_PATH,'Malt','.Dependencies-{}'.format(_PY_VERSION))
+__MALT_DEPENDENCIES_PATH = path.join(
+    __MALT_PATH, 'Malt', f'.Dependencies-{_PY_VERSION}'
+)
 if __MALT_DEPENDENCIES_PATH not in sys.path: sys.path.append(__MALT_DEPENDENCIES_PATH)
 
 from BlenderMalt.MaltUtils import malt_path_getter, malt_path_setter
@@ -107,21 +109,22 @@ _VS_CODE_SETTINGS = '''
 
 @bpy.app.handlers.persistent
 def setup_vs_code(dummy):
-    if bpy.context.scene.render.engine == 'MALT':
-        if bpy.context.preferences.addons['BlenderMalt'].preferences.setup_vs_code:
-            shaders_path = path.join(__MALT_PATH, 'Malt', 'Shaders')
-            intellisense_path = path.join(shaders_path, 'Intellisense', 'intellisense.glsl')
+    if bpy.context.scene.render.engine != 'MALT':
+        return
+    if bpy.context.preferences.addons['BlenderMalt'].preferences.setup_vs_code:
+        shaders_path = path.join(__MALT_PATH, 'Malt', 'Shaders')
+        intellisense_path = path.join(shaders_path, 'Intellisense', 'intellisense.glsl')
 
-            vscode_settings = _VS_CODE_SETTINGS.format(shaders_path, intellisense_path, __MALT_PATH, __MALT_DEPENDENCIES_PATH)
-            vscode_settings = vscode_settings.replace('\\','\\\\')
+        vscode_settings = _VS_CODE_SETTINGS.format(shaders_path, intellisense_path, __MALT_PATH, __MALT_DEPENDENCIES_PATH)
+        vscode_settings = vscode_settings.replace('\\','\\\\')
 
-            settings_dir = bpy.path.abspath('//.vscode')
+        settings_dir = bpy.path.abspath('//.vscode')
 
-            if path.exists(settings_dir) == False:
-                os.makedirs(settings_dir)
+        if path.exists(settings_dir) == False:
+            os.makedirs(settings_dir)
 
-            with open(path.join(settings_dir, 'settings.json'), 'w') as f:
-                f.write(vscode_settings)
+        with open(path.join(settings_dir, 'settings.json'), 'w') as f:
+            f.write(vscode_settings)
 
 def do_windows_fixes():
     import platform, multiprocessing as mp, ctypes
@@ -130,13 +133,17 @@ def do_windows_fixes():
     if platform.system() == 'Windows':
         sys.executable = sys._base_executable
         # Use python-gpu on windows (patched python with NvOptimusEnablement and AmdPowerXpressRequestHighPerformance)
-        python_executable = path.join(sys.exec_prefix, 'bin', 'python-gpu-{}.exe'.format(_PY_VERSION))
+        python_executable = path.join(
+            sys.exec_prefix, 'bin', f'python-gpu-{_PY_VERSION}.exe'
+        )
         if os.path.exists(python_executable) == False:
-            python_gpu_path = path.join(__MALT_DEPENDENCIES_PATH, 'python-gpu-{}.exe'.format(_PY_VERSION))
+            python_gpu_path = path.join(
+                __MALT_DEPENDENCIES_PATH, f'python-gpu-{_PY_VERSION}.exe'
+            )
             try:
                 copy(python_gpu_path, python_executable)
             except PermissionError as e:
-                command = '/c copy "{}" "{}"'.format(python_gpu_path, python_executable)
+                command = f'/c copy "{python_gpu_path}" "{python_executable}"'
                 result = ctypes.windll.shell32.ShellExecuteW(None, 'runas', 'cmd.exe', command, None, 0)
         mp.set_executable(python_executable)
 

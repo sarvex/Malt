@@ -4,10 +4,11 @@ import bpy
 MESHES = {}
 
 def get_mesh_name(object):
-    name = object.name_full
-    if len(object.modifiers) == 0 and object.data:
-        name = object.type + '_' + object.data.name_full
-    return name
+    return (
+        f'{object.type}_{object.data.name_full}'
+        if len(object.modifiers) == 0 and object.data
+        else object.name_full
+    )
 
 def get_mesh(object):
     key = get_mesh_name(object)
@@ -21,13 +22,13 @@ def load_mesh(object, name):
     m = object.data
     if object.type != 'MESH' or bpy.context.mode == 'EDIT_MESH':
         m = object.to_mesh()
-    
+
     if m is None or len(m.polygons) == 0:
         return None
-    
+
     m.calc_loop_triangles()
     m.calc_normals_split()
-    
+
     mesh_ptr = ctypes.c_void_p(m.as_pointer())
     loop_tris_ptr = ctypes.c_void_p(m.loop_triangles[0].as_pointer())
 
@@ -40,14 +41,18 @@ def load_mesh(object, name):
     indices = []
     indices_ptrs = (ctypes.c_void_p * material_count)()
     for i in range(material_count):
-        indices.append(get_load_buffer('indices'+str(i), ctypes.c_uint32, (loop_tri_count * 3)))
+        indices.append(
+            get_load_buffer(
+                f'indices{str(i)}', ctypes.c_uint32, loop_tri_count * 3
+            )
+        )
         indices_ptrs[i] = ctypes.cast(indices[i].buffer(), ctypes.c_void_p)
-    
+
     indices_lengths = (ctypes.c_uint32 * material_count)()
 
     CBlenderMalt.retrieve_mesh_data(mesh_ptr, loop_tris_ptr, loop_tri_count,
         positions.buffer(), normals.buffer(), indices_ptrs, indices_lengths)
-    
+
     for i in range(material_count):
         indices[i]._size = indices_lengths[i]
 
@@ -56,16 +61,18 @@ def load_mesh(object, name):
     for i, uv_layer in enumerate(m.uv_layers):
         if i >= 4: break
         uvs = (ctypes.c_float * (loop_count * 2)).from_address(uv_layer.data[0].as_pointer())
-        uv_buffer = get_load_buffer('uv'+str(i), ctypes.c_float, loop_count * 2)
+        uv_buffer = get_load_buffer(f'uv{str(i)}', ctypes.c_float, loop_count * 2)
         ctypes.memmove(uv_buffer.buffer(), uvs, uv_buffer.size_in_bytes())
         uvs_list.append(uv_buffer)
         if i == 0 and object.original.data.malt_parameters.bools['precomputed_tangents'].boolean:
             m.calc_tangents(uvmap=uv_layer.name)
             tangents_ptr = CBlenderMalt.mesh_tangents_ptr(ctypes.c_void_p(m.as_pointer()))
             tangents = (ctypes.c_float * (loop_count * 4)).from_address(ctypes.addressof(tangents_ptr.contents))
-            tangents_buffer = get_load_buffer('tangents'+str(i), ctypes.c_float, (loop_count * 4))
+            tangents_buffer = get_load_buffer(
+                f'tangents{str(i)}', ctypes.c_float, loop_count * 4
+            )
             ctypes.memmove(tangents_buffer.buffer(), tangents, tangents_buffer.size_in_bytes())
-    
+
     colors_list = [None]*4
     if object.type == 'MESH':
         for i in range(4):
@@ -82,7 +89,7 @@ def load_mesh(object, name):
                 else:
                     continue
                 color = (type * (loop_count * 4)).from_address(attribute.data[0].as_pointer())
-                color_buffer = get_load_buffer('colors'+str(i), type, loop_count*4)
+                color_buffer = get_load_buffer(f'colors{str(i)}', type, loop_count*4)
                 ctypes.memmove(color_buffer.buffer(), color, color_buffer.size_in_bytes())
                 colors_list[i] = color_buffer
 

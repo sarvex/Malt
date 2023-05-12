@@ -43,12 +43,12 @@ def get_RGSS_samples(grid_size, width=1.0):
 def get_random_samples(grid_size, width=1.0):
     random.seed(0)
     samples = []
-    for i in range(0, grid_size * grid_size):
+    for _ in range(0, grid_size * grid_size):
         x = 2
         y = 2
 
         #discard samples where radius > 1
-        while x*x + y*y > 1.0:
+        while x**2 + y**2 > 1.0:
             x = random.random() * 2.0 - 1.0 #(-1 ... +1 range)
             y = random.random() * 2.0 - 1.0 #(-1 ... +1 range)
 
@@ -56,9 +56,9 @@ def get_random_samples(grid_size, width=1.0):
         y *= width
 
         samples.append((x,y))
-    
+
     #Make sure there's at least one sample
-    if len(samples) == 0:
+    if not samples:
         samples = [(0,0)]
-    
+
     return samples

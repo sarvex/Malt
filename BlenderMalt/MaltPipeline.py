@@ -10,10 +10,7 @@ _TIMESTAMP = time.time()
 def is_malt_active():
     if bpy.context.scene.render.engine == 'MALT':
         return True
-    for scene in bpy.data.scenes:
-        if scene.render.engine == 'MALT':
-            return True
-    return False
+    return any(scene.render.engine == 'MALT' for scene in bpy.data.scenes)
 
 def get_bridge(world=None, force_creation=False):
     global _BRIDGE
@@ -49,7 +46,7 @@ class MaltPipeline(bpy.types.PropertyGroup):
     def update_pipeline(self, context):
         global _TIMESTAMP
         _TIMESTAMP = time.time()
-        
+
         #TODO: Sync all scenes. Only one active pipeline per Blender instance is supported atm.
         pipeline = self.pipeline
         if pipeline == '':
@@ -59,7 +56,7 @@ class MaltPipeline(bpy.types.PropertyGroup):
                 # The NPR Pipeline doesn't work on OpenGL implementations limited to 16 sampler uniforms
                 default_pipeline = os.path.join(current_dir,'.MaltPath','Malt','Pipelines','MiniPipeline','MiniPipeline.py')
             pipeline = default_pipeline
-        
+
         preferences = bpy.context.preferences.addons['BlenderMalt'].preferences
 
         debug_mode = bool(preferences.debug_mode)
@@ -70,25 +67,27 @@ class MaltPipeline(bpy.types.PropertyGroup):
         plugin_dir = bpy.path.abspath(self.plugins_dir, library=self.id_data.library)
         if os.path.exists(plugin_dir):
             plugin_dirs.append(plugin_dir)
-        
+
         docs_path = preferences.docs_path
         docs_path = docs_path if os.path.exists(docs_path) else None
-        
+
         path = bpy.path.abspath(pipeline, library=self.id_data.library)
         import Bridge
         bridge = Bridge.Client_API.Bridge(path, int(self.viewport_bit_depth), debug_mode, renderdoc_path, plugin_dirs, docs_path)
         from Malt.Utils import LOG
-        LOG.info('Blender {} {} {}'.format(bpy.app.version_string, bpy.app.build_branch, bpy.app.build_hash))
+        LOG.info(
+            f'Blender {bpy.app.version_string} {bpy.app.build_branch} {bpy.app.build_hash}'
+        )
         params = bridge.get_parameters()
 
         global _BRIDGE, _PIPELINE_PARAMETERS
         _BRIDGE = bridge
         _PIPELINE_PARAMETERS = params
-        
+
         MaltMaterial.reset_materials()
         MaltMeshes.reset_meshes()
         MaltTextures.reset_textures()
-        
+
         #TODO: This can fail depending on the current context, ID classes might not be writeable
         setup_all_ids()
 
@@ -210,13 +209,14 @@ def setup_parameters(ids):
                     bid.malt.material_types.add().name = graph.name
             from BlenderMalt.MaltNodes import MaltCustomPasses
             MaltCustomPasses.setup_default_passes(get_bridge().graphs, bid)
-        if isinstance(bid, bpy.types.Material):
-            #Patch material types
-            if bid.malt.material_type == '':
-                if bid.malt.shader_nodes:
-                    bid.malt.material_type = bid.malt.shader_nodes.graph_type
-                else:
-                    bid.malt.material_type = 'Mesh'
+        if (
+            isinstance(bid, bpy.types.Material)
+            and bid.malt.material_type == ''
+        ):
+            if bid.malt.shader_nodes:
+                bid.malt.material_type = bid.malt.shader_nodes.graph_type
+            else:
+                bid.malt.material_type = 'Mesh'
         for cls, parameters in class_parameters_map.items():
             if isinstance(bid, cls):
                 bid.malt_parameters.setup(parameters)
@@ -236,7 +236,7 @@ def depsgraph_update(scene, depsgraph):
             # but make sure we setup all IDs the next time Malt is enabled
             _BRIDGE = None
             return
-        
+
         sync_pipeline_settings()
 
         if _BRIDGE is None:
@@ -259,18 +259,21 @@ def depsgraph_update(scene, depsgraph):
             # Try to avoid as much re-setups as possible. 
             # Ideally we would do it only on ID creation.
             if update.is_updated_geometry == True or update.is_updated_transform == False:
-                for cls, data in class_data_map.items():
-                    if isinstance(update.id, cls):
-                        ids.append(data[update.id.name])
+                ids.extend(
+                    data[update.id.name]
+                    for cls, data in class_data_map.items()
+                    if isinstance(update.id, cls)
+                )
         setup_parameters(ids)
 
         from . MaltNodes.MaltNodeTree import MaltTree
 
         redraw = False
         for update in depsgraph.updates:
-            if update.is_updated_geometry:
-                if isinstance(update.id, bpy.types.Object):
-                    MaltMeshes.unload_mesh(update.id)
+            if update.is_updated_geometry and isinstance(
+                update.id, bpy.types.Object
+            ):
+                MaltMeshes.unload_mesh(update.id)
             if isinstance(update.id, bpy.types.Image):
                 MaltTextures.unload_texture(update.id)
                 redraw = True
